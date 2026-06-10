@@ -1,0 +1,30 @@
+{
+  "name": "legaltech-monorepo",
+  "version": "1.0.0",
+  "description": "AI Litigation Navigator - Full-stack legal intelligence platform",
+  "private": true,
+  "scripts": {
+    "dev": "bash dev.sh",
+    "setup": "cd backend && npm install && npm run db:seed && cd ../frontend && npm install",
+    "backend": "cd backend && npx ts-node src/index.ts",
+    "frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:seed": "cd backend && npx prisma db seed",
+    "db:reset": "cd backend && rm -f prisma/dev.db && npx prisma migrate dev --name init && npx prisma db seed",
+    "db:studio": "cd backend && npx prisma studio",
+    "scrape:austlii": "cd backend && npx ts-node src/scrape-austlii.ts",
+    "scrape:test": "cd backend && npx ts-node -e \"import { searchAustLII } from './src/scraper'; searchAustLII('artificial intelligence').then(r => console.log(JSON.stringify(r, null, 2)));\""
+  },
+  "keywords": [
+    "ai",
+    "litigation",
+    "legal-tech",
+    "case-management",
+    "law"
+  ],
+  "author": "Adam Pharrels",
+  "license": "MIT"
+}

@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --primary: #06b6d4;
+  --primary-foreground: #000000;
+  --secondary: #111111;
+  --secondary-foreground: #ffffff;
+  --muted: #111111;
+  --muted-foreground: #a1a1aa;
+  --card: #0a0a0a;
+  --card-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.08); /* Minimal borders */
+  --ring: #06b6d4;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.25rem);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism & AI Aesthetics */
+@utility glass {
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@utility glass-card {
+  background-color: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+}
+
+@utility bg-animated-gradient {
+  background-color: #000000;
+  background-image: 
+    radial-gradient(circle at 60% -20%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 20% 120%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
+}
+
+@utility text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(135deg, #ffffff 0%, #a5f3fc 100%);
+}
+
+@utility orb-glow {
+  box-shadow: 0 0 80px 20px rgba(6, 182, 212, 0.2);
+}
+
+@media print {
+  body {
+    background-color: white;
+    color: black;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .glass-card, .glass {
+    background-color: white !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+    color: black !important;
+  }
+  
+  .text-muted-foreground {
+    color: #4b5563 !important;
+  }
+
+  .text-primary {
+    color: #0369a1 !important; /* darker blue for print */
+  }
+
+  a {
+    color: #0369a1 !important;
+    text-decoration: underline;
+  }
+}
