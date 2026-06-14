@@ -4,7 +4,8 @@
  * Run: npx ts-node src/ingest-cases.ts
  */
 
-import { CaseIngestor, convertToDBFormat } from './case-ingestor';
+import { CaseIngestor, convertToDBFormat, passesKeywordFilter } from './case-ingestor';
+import { analyzeCaseWithLLM } from './llm-processor';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -27,7 +28,27 @@ async function main() {
 
     for (const caseData of cases) {
       try {
+        if (!passesKeywordFilter(caseData)) {
+          console.log(`   Skipped (Pass 1 - Keyword Filter): ${caseData.caseName}`);
+          skippedCount++;
+          continue;
+        }
+
+        console.log(`   Passed Keyword Filter, Analyzing with LLM: ${caseData.caseName}`);
+        const llmResult = await analyzeCaseWithLLM(caseData);
+
+        if (!llmResult || !llmResult.isAiRelated) {
+          console.log(`   Skipped (Pass 2 - LLM Filter): ${caseData.caseName}`);
+          skippedCount++;
+          continue;
+        }
+
         const dbCase = convertToDBFormat(caseData);
+        // Merge LLM results
+        dbCase.summaryShort = llmResult.summaryShort;
+        dbCase.summaryLong = llmResult.summaryLong;
+        dbCase.whyItMatters = llmResult.whyItMatters;
+        dbCase.isAiRelated = llmResult.isAiRelated;
 
         // Check if already exists
         const exists = await prisma.case.findUnique({
@@ -35,7 +56,7 @@ async function main() {
         });
 
         if (!exists) {
-          await prisma.case.create({
+          const createdCase = await prisma.case.create({
             data: {
               slug: dbCase.slug,
               caseName: dbCase.caseName,
@@ -54,6 +75,26 @@ async function main() {
               isAiRelated: dbCase.isAiRelated,
             },
           });
+
+          // Connect Issues
+          for (const issueSlug of llmResult.issues) {
+            const issue = await prisma.issue.findUnique({ where: { slug: issueSlug } });
+            if (issue) {
+              await prisma.caseIssue.create({
+                data: { caseId: createdCase.id, issueId: issue.id }
+              }).catch(() => {});
+            }
+          }
+
+          // Connect Legal Areas
+          for (const areaSlug of llmResult.legalAreas) {
+            const area = await prisma.legalArea.findUnique({ where: { slug: areaSlug } });
+            if (area) {
+              await prisma.caseLegalArea.create({
+                data: { caseId: createdCase.id, legalAreaId: area.id }
+              }).catch(() => {});
+            }
+          }
 
           console.log(`   Imported: ${dbCase.caseName}`);
           importedCount++;

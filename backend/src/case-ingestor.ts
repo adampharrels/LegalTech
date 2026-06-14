@@ -25,6 +25,16 @@ export interface CaseData {
   source: string;
 }
 
+export function passesKeywordFilter(caseData: CaseData): boolean {
+  const textToSearch = `${caseData.caseName} ${caseData.summary || ''} ${caseData.fullText || ''}`.toLowerCase();
+  const keywords = [
+    'artificial intelligence', 'algorithm', 'machine learning', 'automated decision',
+    'facial recognition', 'llm', 'chatgpt', 'deepfake', 'generative ai', 'openai'
+  ];
+  return keywords.some(keyword => textToSearch.includes(keyword));
+}
+
+
 /**
  * Federal Court of Australia - FCA Judgments RSS
  * Official feed from fedcourt.gov.au
