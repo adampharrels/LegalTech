@@ -11,12 +11,10 @@ The AI Litigation Navigator addresses the gap in public understanding of AI liti
 - **Searchable Case Database:** Track AI-related litigation across primary jurisdictions (US, Australia, etc.).
 - **Faceted Filtering:** Filter by jurisdiction, issue type, legal area, and procedural status.
 - **Structured Summaries:** Access carefully curated summaries of why specific cases matter.
-- **Automated Ingestion:** Uses `rss-parser` to automatically fetch and ingest new cases directly from official court RSS feeds (e.g., Federal Court of Australia, QLD).
+- **Automated Ingestion:** Uses `rss-parser` to automatically fetch new cases from official court RSS feeds.
+- **AI Processing Pipeline:** Integrates Gemini AI to automatically determine relevance, generate structured summaries, and map cases to the taxonomy.
 - **Admin Panel:** Built-in UI to create new case entries and delete existing cases from the database.
 
-## Future Development
-
-- **LLM API Integration:** Future plans include integrating a Large Language Model (LLM) API to automatically analyze case documents, extract key arguments, and generate detailed, structured summaries.
 
 ## Tech Stack
 
