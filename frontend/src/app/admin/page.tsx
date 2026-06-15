@@ -5,105 +5,124 @@ import Link from 'next/link';
 export default async function AdminPage() {
   const cases = await getCases();
 
+  const inputStyle = {
+    width: '100%',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0.5rem 0.75rem',
+    fontSize: '0.875rem',
+    color: 'var(--text-primary)',
+    outline: 'none',
+    marginBottom: '1rem'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    marginBottom: '0.25rem',
+    color: 'var(--text-secondary)'
+  };
+
   return (
-    <div className="space-y-8 animate-in fade-in">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground w-full max-w-2xl">
+    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+      <div className="flex-col gap-2" style={{ display: 'flex' }}>
+        <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Admin Panel</h1>
+        <p className="text-muted" style={{ maxWidth: '42rem' }}>
           Manage the database curations, add new cases, and handle taxonomy mapping.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
         
         {/* ADD CASE FORM */}
-        <div className="glass-card p-6 rounded-xl self-start">
-          <h2 className="text-xl font-semibold mb-4 border-b border-border pb-2">Add Basic Case</h2>
-          <form action={createBasicCase} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Case Name</label>
-              <input name="caseName" required className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none transition-all" placeholder="e.g. Doe v. AI Corp" />
+        <div className="glass-panel" style={{ alignSelf: 'flex-start' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Add Basic Case</h2>
+          <form action={createBasicCase}>
+            <div>
+              <label style={labelStyle}>Case Name</label>
+              <input name="caseName" required style={inputStyle} placeholder="e.g. Doe v. AI Corp" />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Jurisdiction</label>
-                <input name="jurisdiction" required className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none" placeholder="State/Federal" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Jurisdiction</label>
+                <input name="jurisdiction" required style={inputStyle} placeholder="State/Federal" />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Country</label>
-                <input name="country" required className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none" placeholder="USA" />
+              <div>
+                <label style={labelStyle}>Country</label>
+                <input name="country" required style={inputStyle} placeholder="USA" />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Court Name</label>
-              <input name="courtName" required className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none" placeholder="District Court of..." />
+            <div>
+              <label style={labelStyle}>Court Name</label>
+              <input name="courtName" required style={inputStyle} placeholder="District Court of..." />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Status</label>
-                <select name="statusPublic" className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none">
-                  <option value="Active">Active</option>
-                  <option value="Closed">Closed</option>
-                  <option value="Settled">Settled</option>
-                  <option value="Dismissed">Dismissed</option>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Status</label>
+                <select name="statusPublic" style={inputStyle}>
+                  <option value="Active" style={{ color: '#000' }}>Active</option>
+                  <option value="Closed" style={{ color: '#000' }}>Closed</option>
+                  <option value="Settled" style={{ color: '#000' }}>Settled</option>
+                  <option value="Dismissed" style={{ color: '#000' }}>Dismissed</option>
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Materiality</label>
-                <select name="materialityScore" className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none">
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
+              <div>
+                <label style={labelStyle}>Materiality</label>
+                <select name="materialityScore" style={inputStyle}>
+                  <option value="High" style={{ color: '#000' }}>High</option>
+                  <option value="Medium" style={{ color: '#000' }}>Medium</option>
+                  <option value="Low" style={{ color: '#000' }}>Low</option>
                 </select>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Short Summary</label>
-              <textarea name="summaryShort" required rows={3} className="w-full bg-secondary text-secondary-foreground rounded-md px-3 py-2 text-sm border border-border focus:ring-2 focus:ring-primary outline-none resize-none" placeholder="Brief description of the suit..." />
+            <div>
+              <label style={labelStyle}>Short Summary</label>
+              <textarea name="summaryShort" required rows={3} style={{ ...inputStyle, resize: 'none' }} placeholder="Brief description of the suit..." />
             </div>
 
-            <button type="submit" className="w-full bg-primary text-primary-foreground font-medium rounded-md py-2 hover:bg-primary/90 transition-colors">
+            <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>
               Create Case Entry
             </button>
           </form>
         </div>
 
         {/* LIST CASES */}
-        <div className="lg:col-span-2 glass-card p-6 rounded-xl">
-           <h2 className="text-xl font-semibold mb-4 border-b border-border pb-2">Manage Database</h2>
-           <div className="overflow-x-auto">
-             <table className="w-full text-sm text-left">
-               <thead className="text-xs uppercase bg-secondary/50 text-muted-foreground">
+        <div className="glass-panel" style={{ gridColumn: 'span 2' }}>
+           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Manage Database</h2>
+           <div style={{ overflowX: 'auto' }}>
+             <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+               <thead style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                  <tr>
-                   <th className="px-4 py-3 rounded-tl-md">Case Name</th>
-                   <th className="px-4 py-3">Jurisdiction</th>
-                   <th className="px-4 py-3">Status</th>
-                   <th className="px-4 py-3 rounded-tr-md text-right">Actions</th>
+                   <th style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm) 0 0 0' }}>Case Name</th>
+                   <th style={{ padding: '0.75rem 1rem' }}>Jurisdiction</th>
+                   <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                   <th style={{ padding: '0.75rem 1rem', textAlign: 'right', borderRadius: '0 var(--radius-sm) 0 0' }}>Actions</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-border">
-                 {cases.map((c) => (
-                   <tr key={c.id} className="hover:bg-secondary/30 transition-colors">
-                     <td className="px-4 py-3 font-medium">
-                       <Link href={`/cases/${c.slug}`} className="hover:text-primary transition-colors">
+               <tbody style={{ borderTop: '1px solid var(--border-color)' }}>
+                 {cases.map((c: any) => (
+                   <tr key={c.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                     <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>
+                       <Link href={`/cases/${c.slug}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-primary)'}>
                          {c.caseName}
                        </Link>
                      </td>
-                     <td className="px-4 py-3 text-muted-foreground">{c.jurisdiction}</td>
-                     <td className="px-4 py-3">
-                       <span className="px-2 py-1 bg-secondary rounded text-xs">{c.statusPublic}</span>
+                     <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>{c.jurisdiction}</td>
+                     <td style={{ padding: '0.75rem 1rem' }}>
+                       <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusPublic}</span>
                      </td>
-                     <td className="px-4 py-3 text-right">
-                        {/* A tiny inline form to delete */}
+                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                         <form action={async () => {
                           'use server'
                           await deleteCase(c.id);
                         }}>
-                          <button type="submit" className="text-red-500 hover:text-red-400 text-xs font-semibold px-2 py-1">
+                          <button type="submit" style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
                             Delete
                           </button>
                         </form>
@@ -112,7 +131,7 @@ export default async function AdminPage() {
                  ))}
                  {cases.length === 0 && (
                    <tr>
-                     <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No cases in database.</td>
+                     <td colSpan={4} style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No cases in database.</td>
                    </tr>
                  )}
                </tbody>

@@ -24,69 +24,71 @@ export default async function CasesPage({
   const legalAreas = await getLegalAreas() as any[];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-bold">Case Explorer</h1>
-          <p className="text-muted-foreground w-full max-w-2xl">
+    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+      <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="flex-col gap-2" style={{ display: 'flex' }}>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Case Explorer</h1>
+          <p className="text-muted" style={{ maxWidth: '42rem' }}>
             Browse and filter through our curated database of AI-related litigation and tribunal decisions.
           </p>
         </div>
         <ExportButton cases={cases} />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex gap-8" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         
         {/* Sidebar with Filters */}
-        <aside className="w-full lg:w-64 shrink-0">
+        <aside style={{ width: '100%', maxWidth: '16rem', flexShrink: 0 }}>
           <FilterSidebar issues={issues} legalAreas={legalAreas} />
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-col gap-4" style={{ display: 'flex', flex: 1, minWidth: '300px' }}>
           {cases.length === 0 ? (
-            <div className="glass-card p-12 rounded-xl text-center flex flex-col items-center">
-              <Scale className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-              <h3 className="text-lg font-medium">No cases found</h3>
-              <p className="text-muted-foreground">Try adjusting your filters or check back later.</p>
+            <div className="glass-panel flex-col items-center justify-center text-center gap-4" style={{ display: 'flex', padding: '3rem' }}>
+              <Scale size={48} className="text-muted" style={{ opacity: 0.5 }} />
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 500 }}>No cases found</h3>
+              <p className="text-muted">Try adjusting your filters or check back later.</p>
             </div>
           ) : (
             (cases as any[]).map((c: any) => (
-              <Link href={`/cases/${c.slug}`} key={c.id}>
-                <div className="glass-card p-6 rounded-xl transition-all hover:scale-[1.01] hover:border-primary/30 group mb-4">
-                  <div className="flex justify-between items-start gap-4">
+              <Link href={`/cases/${c.slug}`} key={c.id} style={{ display: 'block' }}>
+                <div className="glass-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
+                  <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
                     <div>
-                      <h2 className="text-xl font-semibold group-hover:text-primary transition-colors">
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', transition: 'color 0.2s' }}
+                          onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'}
+                          onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-primary)'}>
                         {c.caseName}
                       </h2>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                      <div className="flex items-center gap-4 text-muted mt-4" style={{ fontSize: '0.875rem' }}>
                         {c.filingDate && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
+                          <span className="flex items-center gap-2">
+                            <Calendar size={16} />
                             {new Date(c.filingDate).toLocaleDateString()}
                           </span>
                         )}
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
+                        <span className="flex items-center gap-2">
+                          <MapPin size={16} />
                           {c.jurisdiction}
                         </span>
-                        <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
+                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.75rem' }}>
                           {c.statusPublic}
                         </span>
                       </div>
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-0.5 transition-transform" />
+                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: 'rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ArrowRight size={20} color="var(--accent-primary)" />
                     </div>
                   </div>
-                  <p className="text-muted-foreground mt-4 line-clamp-2">
+                  <p className="text-muted mt-4" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {c.summaryShort}
                   </p>
                   
                   {c.issues.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-4">
+                    <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
                       {c.issues.map((ci: any) => (
-                        <span key={ci.issueId} className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+                        <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(6, 182, 212, 0.2)' }}>
                           {ci.issue.name}
                         </span>
                       ))}

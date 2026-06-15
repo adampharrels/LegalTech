@@ -6,9 +6,22 @@ export default function PrintButton() {
   return (
     <button
       onClick={() => window.print()}
-      className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors ml-auto print:hidden"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        fontSize: '0.875rem',
+        fontWeight: 500,
+        color: 'var(--text-secondary)',
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        marginLeft: 'auto'
+      }}
+      onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+      onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+      className="print-hidden"
     >
-      <Printer className="w-4 h-4 mr-2" />
+      <Printer size={16} style={{ marginRight: '0.5rem' }} />
       Print Case
     </button>
   );

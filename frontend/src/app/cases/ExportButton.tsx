@@ -41,9 +41,10 @@ export default function ExportButton({ cases }: { cases: any[] }) {
   return (
     <button 
       onClick={handleExport}
-      className="flex items-center gap-2 px-4 py-2 bg-secondary/80 hover:bg-secondary text-secondary-foreground rounded-lg transition-colors text-sm font-medium"
+      className="btn-secondary"
+      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
     >
-      <Download className="w-4 h-4" />
+      <Download size={16} />
       Export CSV
     </button>
   );

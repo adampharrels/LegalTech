@@ -3,44 +3,50 @@ import { Search, LayoutDashboard, Gavel } from 'lucide-react';
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full glass border-b border-border transition-all duration-300 backdrop-blur-lg">
-      <div className="w-full max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(5, 5, 5, 0.8)' }}>
+      <div className="container flex justify-between items-center" style={{ padding: '0', height: '4rem' }}>
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Gavel className="w-5 h-5 text-primary" />
+        <Link href="/" className="flex items-center gap-2" style={{ textDecoration: 'none' }}>
+          <div style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', background: 'rgba(6, 182, 212, 0.1)' }}>
+            <Gavel size={20} color="var(--accent-primary)" />
           </div>
-          <span className="font-bold text-base tracking-tighter text-foreground hidden sm:flex">
-            AI<span className="text-primary mx-1">Litigation</span>Navigator
-          </span>
-          <span className="font-bold text-base tracking-tighter text-foreground sm:hidden">
-            ALN
+          <span style={{ fontWeight: 700, fontSize: '1rem', letterSpacing: '-0.05em' }}>
+            AI<span style={{ color: 'var(--accent-primary)', margin: '0 0.25rem' }}>Litigation</span>Navigator
           </span>
         </Link>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-1 sm:gap-4">
+        <nav className="flex items-center gap-4">
           <Link 
             href="/cases" 
-            className="text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 px-3 py-2 rounded-md transition-all flex items-center gap-2"
+            className="flex items-center gap-2 nav-link"
+            style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}
           >
-            <Search className="w-4 h-4" />
-            <span className="hidden sm:inline">Cases</span>
+            <Search size={16} />
+            <span>Cases</span>
           </Link>
           <Link 
             href="/dashboard" 
-            className="text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 px-3 py-2 rounded-md transition-all flex items-center gap-2"
+            className="flex items-center gap-2 nav-link"
+            style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}
           >
-            <LayoutDashboard className="w-4 h-4" />
-            <span className="hidden sm:inline">Dashboard</span>
+            <LayoutDashboard size={16} />
+            <span>Dashboard</span>
           </Link>
-          <div className="h-4 w-px bg-border hidden sm:block mx-2"></div>
+          <div style={{ width: '1px', height: '1rem', background: 'var(--border-color)', margin: '0 0.5rem' }}></div>
           <Link 
             href="/admin" 
-            className="text-sm font-medium px-3 sm:px-4 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20 hover:border-primary/40"
+            style={{ 
+              padding: '0.5rem 1rem', 
+              borderRadius: 'var(--radius-md)', 
+              background: 'rgba(6, 182, 212, 0.1)', 
+              color: 'var(--accent-primary)',
+              border: '1px solid rgba(6, 182, 212, 0.2)',
+              fontWeight: 500,
+              fontSize: '0.875rem'
+            }}
           >
-            <span className="hidden sm:inline">Admin</span>
-            <span className="sm:hidden">+</span>
+            Admin
           </Link>
         </nav>
       </div>

@@ -41,17 +41,59 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
     return searchParams.getAll(name).includes(value);
   };
 
+  const sectionStyle = {
+    padding: '1.25rem',
+    marginBottom: '1.5rem',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1rem'
+  };
+
+  const titleStyle = {
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+    borderBottom: '1px solid var(--border-color)',
+    paddingBottom: '0.75rem',
+    margin: 0
+  };
+
+  const inputStyle = {
+    width: '100%',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0.5rem 0.75rem',
+    fontSize: '0.875rem',
+    color: 'var(--text-primary)',
+    outline: 'none'
+  };
+
+  const labelStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+    color: 'var(--text-secondary)'
+  };
+
+  const checkboxStyle = {
+    accentColor: 'var(--accent-primary)',
+    width: '1rem',
+    height: '1rem'
+  };
+
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Search Query */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Search
-        </h3>
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Search</h3>
         <input 
           type="text" 
           placeholder="Search cases..." 
-          className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+          style={inputStyle}
           defaultValue={searchParams.get('query') || ''}
           onBlur={(e) => handleSingleChange('query', e.target.value)}
           onKeyDown={(e) => {
@@ -61,25 +103,23 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       </div>
 
       {/* Date Range Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Filing Date
-        </h3>
-        <div className="space-y-3">
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs text-muted-foreground">From</label>
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Filing Date</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>From</label>
             <input 
               type="date" 
-              className="bg-background border border-border rounded-md px-3 py-1.5 text-sm"
+              style={inputStyle}
               value={searchParams.get('dateFrom') || ''}
               onChange={(e) => handleSingleChange('dateFrom', e.target.value)}
             />
           </div>
-          <div className="flex flex-col space-y-1">
-            <label className="text-xs text-muted-foreground">To</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>To</label>
             <input 
               type="date" 
-              className="bg-background border border-border rounded-md px-3 py-1.5 text-sm"
+              style={inputStyle}
               value={searchParams.get('dateTo') || ''}
               onChange={(e) => handleSingleChange('dateTo', e.target.value)}
             />
@@ -88,16 +128,14 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       </div>
 
       {/* Jurisdiction Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Jurisdiction
-        </h3>
-        <div className="space-y-3">
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Jurisdiction</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['United States', 'Australia', 'European Union', 'United Kingdom'].map(jur => (
-            <label key={jur} className="flex items-center space-x-2 text-sm cursor-pointer hover:text-primary transition-colors">
+            <label key={jur} style={labelStyle} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
-                className="rounded border-border text-primary focus:ring-primary/20 bg-background"
+                style={checkboxStyle}
                 checked={isChecked('jurisdiction', jur)}
                 onChange={(e) => handleCheck('jurisdiction', jur, e.target.checked)}
               />
@@ -108,16 +146,14 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       </div>
 
       {/* Status Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Case Status
-        </h3>
-        <div className="space-y-3">
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Case Status</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['Active', 'Closed', 'Settled', 'Dismissed', 'Pending'].map(status => (
-            <label key={status} className="flex items-center space-x-2 text-sm cursor-pointer hover:text-primary transition-colors">
+            <label key={status} style={labelStyle} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
-                className="rounded border-border text-primary focus:ring-primary/20 bg-background"
+                style={checkboxStyle}
                 checked={isChecked('statusPublic', status)}
                 onChange={(e) => handleCheck('statusPublic', status, e.target.checked)}
               />
@@ -128,16 +164,14 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       </div>
 
       {/* Materiality Score Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Materiality
-        </h3>
-        <div className="space-y-3">
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Materiality</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['High', 'Medium', 'Low'].map(score => (
-            <label key={score} className="flex items-center space-x-2 text-sm cursor-pointer hover:text-primary transition-colors">
+            <label key={score} style={labelStyle} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
-                className="rounded border-border text-primary focus:ring-primary/20 bg-background"
+                style={checkboxStyle}
                 checked={isChecked('materialityScore', score)}
                 onChange={(e) => handleCheck('materialityScore', score, e.target.checked)}
               />
@@ -148,40 +182,36 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       </div>
 
       {/* Issues Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Issues ({issues.length})
-        </h3>
-        <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Issues ({issues.length})</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '16rem', overflowY: 'auto' }}>
           {issues.map(issue => (
-            <label key={issue.id} className="flex items-start space-x-2 text-sm cursor-pointer hover:text-primary transition-colors py-0.5">
+            <label key={issue.id} style={{ ...labelStyle, alignItems: 'flex-start' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
-                className="rounded border-border text-primary focus:ring-primary/20 bg-background mt-1 shrink-0"
+                style={{ ...checkboxStyle, marginTop: '0.25rem', flexShrink: 0 }}
                 checked={isChecked('issueSlug', issue.slug)}
                 onChange={(e) => handleCheck('issueSlug', issue.slug, e.target.checked)}
               />
-              <span className="leading-snug">{issue.name}</span>
+              <span style={{ lineHeight: 1.4 }}>{issue.name}</span>
             </label>
           ))}
         </div>
       </div>
 
       {/* Legal Areas Filter */}
-      <div className="glass-card p-5 rounded-xl space-y-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wider border-b border-border pb-3">
-          Legal Areas ({legalAreas.length})
-        </h3>
-        <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+      <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Legal Areas ({legalAreas.length})</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '16rem', overflowY: 'auto' }}>
           {legalAreas.map(area => (
-            <label key={area.id} className="flex items-start space-x-2 text-sm cursor-pointer hover:text-primary transition-colors py-0.5">
+            <label key={area.id} style={{ ...labelStyle, alignItems: 'flex-start' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
-                className="rounded border-border text-primary focus:ring-primary/20 bg-background mt-1 shrink-0"
+                style={{ ...checkboxStyle, marginTop: '0.25rem', flexShrink: 0 }}
                 checked={isChecked('legalAreaSlug', area.slug)}
                 onChange={(e) => handleCheck('legalAreaSlug', area.slug, e.target.checked)}
               />
-              <span className="leading-snug">{area.name}</span>
+              <span style={{ lineHeight: 1.4 }}>{area.name}</span>
             </label>
           ))}
         </div>
@@ -190,7 +220,8 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: any[], l
       {/* Clear Filters */}
       <button
         onClick={() => router.push('/cases')}
-        className="w-full bg-secondary/50 hover:bg-secondary/70 text-foreground font-medium rounded-lg py-2 text-center transition-colors text-sm"
+        className="btn-secondary"
+        style={{ width: '100%', marginTop: '1rem' }}
       >
         Clear All Filters
       </button>
