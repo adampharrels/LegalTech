@@ -46,6 +46,12 @@ export default async function CaseDetailPage({
         </h1>
 
         <div className="flex gap-6 text-muted" style={{ flexWrap: 'wrap', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+          {caseData.neutralCitation && (
+            <div className="flex items-center gap-2">
+              <BookOpen size={20} style={{ opacity: 0.7 }} />
+              <span>{caseData.neutralCitation}</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Scale size={20} style={{ opacity: 0.7 }} />
             <span>{caseData.courtName}</span>
@@ -150,6 +156,10 @@ export default async function CaseDetailPage({
                 <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Country</span>
                 <span style={{ fontWeight: 500 }}>{caseData.country}</span>
               </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Last Updated</span>
+                <span style={{ fontWeight: 500 }}>{new Date(caseData.lastUpdated).toLocaleDateString()}</span>
+              </div>
             </div>
           </section>
 
@@ -162,7 +172,14 @@ export default async function CaseDetailPage({
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
                 {caseData.sources.map((source) => (
                   <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
-                    <div style={{ fontWeight: 500 }}>{source.title}</div>
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span>{source.title}</span>
+                      {source.isPrimary && (
+                        <span style={{ padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Primary
+                        </span>
+                      )}
+                    </div>
                     <div className="text-muted flex justify-between mt-1" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
                       <span>{source.publisher || source.sourceType}</span>
                       {source.publishedAt && <span>{new Date(source.publishedAt).toLocaleDateString()}</span>}

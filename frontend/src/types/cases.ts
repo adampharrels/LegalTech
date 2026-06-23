@@ -30,6 +30,7 @@ export type CaseSummary = {
   country: string;
   courtName: string;
   courtLevel: string;
+  neutralCitation?: string | null;
   statusPublic: string;
   statusInternal: string;
   materialityScore: string;

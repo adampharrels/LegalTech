@@ -92,7 +92,7 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
         issues: { include: { issue: true } },
         legalAreas: { include: { legalArea: true } },
         events: { orderBy: { eventDate: 'desc' } },
-        sources: true,
+        sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
         relatedTo: { include: { relatedCase: true } },
         relatedFrom: { include: { case: true } }
       }
