@@ -20,8 +20,8 @@ export default async function CasesPage({
 }) {
   const params = await searchParams;
   const cases = await getCases(params);
-  const issues = await getIssues() as any[];
-  const legalAreas = await getLegalAreas() as any[];
+  const issues = await getIssues();
+  const legalAreas = await getLegalAreas();
 
   return (
     <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
@@ -51,7 +51,7 @@ export default async function CasesPage({
               <p className="text-muted">Try adjusting your filters or check back later.</p>
             </div>
           ) : (
-            (cases as any[]).map((c: any) => (
+            cases.map((c) => (
               <Link href={`/cases/${c.slug}`} key={c.id} style={{ display: 'block' }}>
                 <div className="glass-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
                   <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
@@ -87,7 +87,7 @@ export default async function CasesPage({
                   
                   {c.issues.length > 0 && (
                     <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
-                      {c.issues.map((ci: any) => (
+                      {c.issues.map((ci) => (
                         <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(6, 182, 212, 0.2)' }}>
                           {ci.issue.name}
                         </span>

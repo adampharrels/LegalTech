@@ -2,8 +2,9 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
+import type { Issue, LegalArea } from '@/types/cases';
 
-export default function FilterSidebar({ issues, legalAreas }: { issues: any[], legalAreas: any[] }) {
+export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[], legalAreas: LegalArea[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 

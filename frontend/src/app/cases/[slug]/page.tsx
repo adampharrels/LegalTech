@@ -89,7 +89,7 @@ export default async function CaseDetailPage({
               <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Timeline</h2>
               <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
                 <div className="flex-col gap-6" style={{ display: 'flex' }}>
-                  {caseData.events.map((event: any) => (
+                  {caseData.events.map((event) => (
                     <div key={event.id} className="flex gap-4" style={{ position: 'relative' }}>
                       <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: 'var(--accent-primary)', marginTop: '0.375rem', flexShrink: 0 }}></div>
                       <div>
@@ -115,7 +115,7 @@ export default async function CaseDetailPage({
             <div>
               <h4 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Legal Issues</h4>
               <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                {caseData.issues.map((ci: any) => (
+                {caseData.issues.map((ci) => (
                   <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
                     {ci.issue.name}
                   </span>
@@ -126,7 +126,7 @@ export default async function CaseDetailPage({
             <div style={{ paddingTop: '0.5rem' }}>
               <h4 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Legal Areas</h4>
               <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                {caseData.legalAreas.map((cla: any) => (
+                {caseData.legalAreas.map((cla) => (
                   <span key={cla.legalAreaId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', border: '1px solid var(--border-color)' }}>
                     {cla.legalArea.name}
                   </span>
@@ -160,7 +160,7 @@ export default async function CaseDetailPage({
                 Sources
               </h3>
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
-                {caseData.sources.map((source: any) => (
+                {caseData.sources.map((source) => (
                   <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
                     <div style={{ fontWeight: 500 }}>{source.title}</div>
                     <div className="text-muted flex justify-between mt-1" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
@@ -180,13 +180,13 @@ export default async function CaseDetailPage({
                 Related Cases
               </h3>
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
-                {caseData.relatedTo?.map((rc: any) => (
+                {caseData.relatedTo?.map((rc) => (
                   <Link key={rc.id} href={`/cases/${rc.relatedCase.slug}`} style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
                     <div style={{ fontWeight: 500 }}>{rc.relatedCase.caseName}</div>
                     <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rc.relationshipType}</div>
                   </Link>
                 ))}
-                {caseData.relatedFrom?.map((rc: any) => (
+                {caseData.relatedFrom?.map((rc) => (
                   <Link key={rc.id} href={`/cases/${rc.case.slug}`} style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
                     <div style={{ fontWeight: 500 }}>{rc.case.caseName}</div>
                     <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rc.relationshipType}</div>

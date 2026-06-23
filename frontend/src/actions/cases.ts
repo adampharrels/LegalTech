@@ -1,5 +1,7 @@
 'use server'
 
+import type { CaseDetail, CaseSummary, Issue, LegalArea } from '@/types/cases';
+
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
 export async function getCases(filters?: {
@@ -11,7 +13,7 @@ export async function getCases(filters?: {
   statusPublic?: string | string[];
   dateFrom?: string;
   dateTo?: string;
-}) {
+}): Promise<CaseSummary[]> {
   const params = new URLSearchParams();
   
   const appendParam = (key: string, value: string | string[] | undefined) => {
@@ -39,25 +41,25 @@ export async function getCases(filters?: {
     return [];
   }
   
-  return response.json();
+  return response.json() as Promise<CaseSummary[]>;
 }
 
-export async function getCaseBySlug(slug: string) {
+export async function getCaseBySlug(slug: string): Promise<CaseDetail | null> {
   const response = await fetch(`${API_URL}/cases/${slug}`, { cache: 'no-store' });
   if (!response.ok) {
     return null;
   }
-  return response.json();
+  return response.json() as Promise<CaseDetail>;
 }
 
-export async function getIssues() {
+export async function getIssues(): Promise<Issue[]> {
   const response = await fetch(`${API_URL}/issues`, { cache: 'no-store' });
   if (!response.ok) return [];
-  return response.json();
+  return response.json() as Promise<Issue[]>;
 }
 
-export async function getLegalAreas() {
+export async function getLegalAreas(): Promise<LegalArea[]> {
   const response = await fetch(`${API_URL}/legal-areas`, { cache: 'no-store' });
   if (!response.ok) return [];
-  return response.json();
+  return response.json() as Promise<LegalArea[]>;
 }

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import "./globals.css";
 import Header from "@/components/Header";
 
@@ -45,9 +46,9 @@ export default function RootLayout({
                 <div>
                   <h3 style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>Resources</h3>
                   <ul className="text-muted" style={{ fontSize: '0.75rem', listStyle: 'none', padding: 0 }}>
-                    <li style={{ marginBottom: '0.25rem' }}><a href="/" className="nav-link">Home</a></li>
-                    <li style={{ marginBottom: '0.25rem' }}><a href="/cases" className="nav-link">Case Explorer</a></li>
-                    <li style={{ marginBottom: '0.25rem' }}><a href="/dashboard" className="nav-link">Dashboard</a></li>
+                    <li style={{ marginBottom: '0.25rem' }}><Link href="/" className="nav-link">Home</Link></li>
+                    <li style={{ marginBottom: '0.25rem' }}><Link href="/cases" className="nav-link">Case Explorer</Link></li>
+                    <li style={{ marginBottom: '0.25rem' }}><Link href="/dashboard" className="nav-link">Dashboard</Link></li>
                   </ul>
                 </div>
                 <div>

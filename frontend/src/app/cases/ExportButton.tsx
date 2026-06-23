@@ -1,8 +1,9 @@
 "use client";
 
 import { Download } from "lucide-react";
+import type { CaseSummary } from "@/types/cases";
 
-export default function ExportButton({ cases }: { cases: any[] }) {
+export default function ExportButton({ cases }: { cases: CaseSummary[] }) {
   const handleExport = () => {
     if (!cases || cases.length === 0) return;
 

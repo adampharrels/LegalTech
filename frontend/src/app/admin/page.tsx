@@ -106,7 +106,7 @@ export default async function AdminPage() {
                  </tr>
                </thead>
                <tbody style={{ borderTop: '1px solid var(--border-color)' }}>
-                 {cases.map((c: any) => (
+                 {cases.map((c) => (
                    <tr key={c.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                      <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>
                        <Link href={`/cases/${c.slug}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-primary)'}>

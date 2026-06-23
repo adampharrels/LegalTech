@@ -6,17 +6,17 @@ export default async function DashboardPage() {
   const issuesList = await getIssues();
   
   const totalCases = cases.length;
-  const activeCases = cases.filter((c: any) => c.statusPublic === 'Active').length;
-  const highMateriality = cases.filter((c: any) => c.materialityScore === 'High').length;
+  const activeCases = cases.filter((c) => c.statusPublic === 'Active').length;
+  const highMateriality = cases.filter((c) => c.materialityScore === 'High').length;
 
   // Simple aggregation for jurisdictions
-  const jurisdictionsMap = cases.reduce((acc: Record<string, number>, c: any) => {
+  const jurisdictionsMap = cases.reduce((acc: Record<string, number>, c) => {
     acc[c.jurisdiction] = (acc[c.jurisdiction] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
   
   const topJurisdictions = Object.entries(jurisdictionsMap)
-    .sort((a: any, b: any) => b[1] - a[1])
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
   return (
@@ -76,8 +76,8 @@ export default async function DashboardPage() {
         <div className="glass-panel">
           <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Top Jurisdictions</h3>
           <div className="flex-col gap-6" style={{ display: 'flex' }}>
-            {topJurisdictions.map(([j, count]: any) => {
-              const max = Math.max(...topJurisdictions.map((x: any) => x[1]));
+            {topJurisdictions.map(([j, count]) => {
+              const max = Math.max(...topJurisdictions.map((x) => x[1]));
               const width = Math.max(15, (count / max) * 100);
               return (
                 <div key={j} className="flex-col gap-2" style={{ display: 'flex' }}>
