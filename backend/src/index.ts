@@ -15,8 +15,17 @@ app.use(express.urlencoded({ extended: true }));
 // === GET CASES ===
 app.get('/api/cases', async (req: Request, res: Response) => {
   try {
-    const { jurisdiction, issueSlug, legalAreaSlug, query, materialityScore, statusPublic, dateFrom, dateTo } = req.query;
+    const { jurisdiction, issueSlug, legalAreaSlug, query, materialityScore, statusPublic, dateFrom, dateTo, sort } = req.query;
     const where: any = {};
+    const sortValue = String(sort || 'newest');
+    const orderBy =
+      sortValue === 'oldest'
+        ? { filingDate: 'asc' as const }
+        : sortValue === 'recently-updated'
+          ? { lastUpdated: 'desc' as const }
+          : sortValue === 'name'
+            ? { caseName: 'asc' as const }
+            : { filingDate: 'desc' as const };
     
     if (jurisdiction) {
       where.jurisdiction = { in: String(jurisdiction).split(',') };
@@ -62,9 +71,7 @@ app.get('/api/cases', async (req: Request, res: Response) => {
         issues: { include: { issue: true } },
         legalAreas: { include: { legalArea: true } }
       },
-      orderBy: {
-        filingDate: 'desc'
-      }
+      orderBy
     });
 
     res.json(cases);

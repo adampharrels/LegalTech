@@ -13,6 +13,7 @@ export async function getCases(filters?: {
   statusPublic?: string | string[];
   dateFrom?: string;
   dateTo?: string;
+  sort?: string;
 }): Promise<CaseSummary[]> {
   const params = new URLSearchParams();
   
@@ -33,6 +34,7 @@ export async function getCases(filters?: {
   appendParam('query', filters?.query);
   appendParam('dateFrom', filters?.dateFrom);
   appendParam('dateTo', filters?.dateTo);
+  appendParam('sort', filters?.sort);
 
   const url = `${API_URL}/cases${params.toString() ? `?${params.toString()}` : ''}`;
   const response = await fetch(url, { cache: 'no-store' });

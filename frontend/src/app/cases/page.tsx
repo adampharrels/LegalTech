@@ -16,6 +16,7 @@ export default async function CasesPage({
     statusPublic?: string | string[];
     dateFrom?: string;
     dateTo?: string;
+    sort?: string;
   }>;
 }) {
   const params = await searchParams;

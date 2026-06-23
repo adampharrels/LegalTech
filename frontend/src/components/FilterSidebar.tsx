@@ -105,6 +105,21 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
 
       {/* Date Range Filter */}
       <div className="glass-panel" style={sectionStyle}>
+        <h3 style={titleStyle}>Sort By</h3>
+        <select
+          style={inputStyle}
+          value={searchParams.get('sort') || 'newest'}
+          onChange={(e) => handleSingleChange('sort', e.target.value)}
+        >
+          <option value="newest" style={{ color: '#000' }}>Newest filing</option>
+          <option value="oldest" style={{ color: '#000' }}>Oldest filing</option>
+          <option value="recently-updated" style={{ color: '#000' }}>Recently updated</option>
+          <option value="name" style={{ color: '#000' }}>Case name</option>
+        </select>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="glass-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Filing Date</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
