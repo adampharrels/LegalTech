@@ -7,7 +7,7 @@
     "build": "tsc --noEmit",
     "dev": "ts-node src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No backend tests configured yet\"",
+    "test": "node --test -r ts-node/register src/*.test.ts",
     "ingest": "ts-node src/ingest-cases.ts"
   },
   "prisma": {
