@@ -38,11 +38,22 @@ export default async function AdminPage() {
         
         {/* ADD CASE FORM */}
         <div className="glass-panel" style={{ alignSelf: 'flex-start' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Add Basic Case</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Add Case</h2>
           <form action={createBasicCase}>
             <div>
               <label style={labelStyle}>Case Name</label>
               <input name="caseName" required style={inputStyle} placeholder="e.g. Doe v. AI Corp" />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Neutral Citation</label>
+                <input name="neutralCitation" style={inputStyle} placeholder="[2026] FCA 123" />
+              </div>
+              <div>
+                <label style={labelStyle}>Docket Number</label>
+                <input name="docketNumber" style={inputStyle} placeholder="1:26-cv-00123" />
+              </div>
             </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -59,6 +70,17 @@ export default async function AdminPage() {
             <div>
               <label style={labelStyle}>Court Name</label>
               <input name="courtName" required style={inputStyle} placeholder="District Court of..." />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Court Level</label>
+                <input name="courtLevel" style={inputStyle} placeholder="Trial, Appeal, Federal" />
+              </div>
+              <div>
+                <label style={labelStyle}>Filing Date</label>
+                <input name="filingDate" type="date" style={inputStyle} />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -84,6 +106,42 @@ export default async function AdminPage() {
             <div>
               <label style={labelStyle}>Short Summary</label>
               <textarea name="summaryShort" required rows={3} style={{ ...inputStyle, resize: 'none' }} placeholder="Brief description of the suit..." />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Detailed Summary</label>
+              <textarea name="summaryLong" rows={5} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Facts, issues, procedural posture..." />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Why It Matters</label>
+              <textarea name="whyItMatters" rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Why this case matters for AI law or governance..." />
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-secondary)' }}>Primary Source</h3>
+              <div>
+                <label style={labelStyle}>Source URL</label>
+                <input name="sourceUrl" type="url" style={inputStyle} placeholder="https://..." />
+              </div>
+              <div>
+                <label style={labelStyle}>Source Title</label>
+                <input name="sourceTitle" style={inputStyle} placeholder="Complaint, judgment, docket entry..." />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>Source Type</label>
+                  <input name="sourceType" style={inputStyle} placeholder="Court record" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Publisher</label>
+                  <input name="sourcePublisher" style={inputStyle} placeholder="Court / tribunal" />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Published Date</label>
+                <input name="sourcePublishedAt" type="date" style={inputStyle} />
+              </div>
             </div>
 
             <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>

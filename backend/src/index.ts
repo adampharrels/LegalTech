@@ -135,27 +135,65 @@ app.get('/api/legal-areas', async (req: Request, res: Response) => {
 app.post('/api/cases', async (req: Request, res: Response) => {
   try {
     const {
-      caseName, jurisdiction, country, courtName, statusPublic, materialityScore, summaryShort
+      caseName,
+      neutralCitation,
+      docketNumber,
+      jurisdiction,
+      country,
+      courtName,
+      courtLevel,
+      statusPublic,
+      materialityScore,
+      filingDate,
+      summaryShort,
+      summaryLong,
+      whyItMatters,
+      sourceTitle,
+      sourceUrl,
+      sourceType,
+      sourcePublisher,
+      sourcePublishedAt
     } = req.body;
 
     if (!caseName) return res.status(400).json({ error: 'caseName required' });
 
     const slug = caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     
+    const casePayload = {
+      caseName,
+      slug,
+      jurisdiction: jurisdiction || 'Unknown',
+      country: country || 'Unknown',
+      courtName: courtName || 'Unknown',
+      courtLevel: courtLevel || 'Trial',
+      neutralCitation: neutralCitation || null,
+      docketNumber: docketNumber || null,
+      statusPublic: statusPublic || 'Pending',
+      statusInternal: 'Review',
+      materialityScore: materialityScore || 'Low',
+      filingDate: filingDate ? new Date(filingDate) : null,
+      summaryShort: summaryShort || 'No summary provided.',
+      summaryLong: summaryLong || null,
+      whyItMatters: whyItMatters || null,
+      isAiRelated: true,
+      ...(sourceUrl
+        ? {
+          sources: {
+          create: {
+            title: sourceTitle || 'Primary source',
+            url: sourceUrl,
+            sourceType: sourceType || 'Court record',
+            publisher: sourcePublisher || null,
+            publishedAt: sourcePublishedAt ? new Date(sourcePublishedAt) : null,
+            isPrimary: true,
+          }
+          }
+        }
+        : {}),
+    };
+
     const created = await prisma.case.create({
-      data: {
-        caseName,
-        slug,
-        jurisdiction: jurisdiction || 'Unknown',
-        country: country || 'Unknown',
-        courtName: courtName || 'Unknown',
-        courtLevel: 'Trial',
-        statusPublic: statusPublic || 'Pending',
-        statusInternal: 'Review',
-        materialityScore: materialityScore || 'Low',
-        summaryShort: summaryShort || 'No summary provided.',
-        isAiRelated: true,
-      }
+      data: casePayload
     });
 
     res.status(201).json(created);
