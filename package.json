@@ -15,8 +15,7 @@
     "db:seed": "cd backend && npx prisma db seed",
     "db:reset": "cd backend && rm -f prisma/dev.db && npx prisma migrate dev --name init && npx prisma db seed",
     "db:studio": "cd backend && npx prisma studio",
-    "scrape:austlii": "cd backend && npx ts-node src/scrape-austlii.ts",
-    "scrape:test": "cd backend && npx ts-node -e \"import { searchAustLII } from './src/scraper'; searchAustLII('artificial intelligence').then(r => console.log(JSON.stringify(r, null, 2)));\""
+    "ingest": "cd backend && npm run ingest"
   },
   "keywords": [
     "ai",
