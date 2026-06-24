@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import { analyzeCaseWithLLM } from './llm-processor';
+import type { CaseData } from './case-ingestor';
 
 dotenv.config();
 
@@ -200,6 +202,98 @@ app.post('/api/cases', async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to create case' });
+  }
+});
+
+// === ANALYZE CASE WITH LLM ===
+app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
+    }
+
+    const id = String(req.params.id);
+    const existingCase = await prisma.case.findUnique({
+      where: { id },
+      include: {
+        sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
+      },
+    });
+
+    if (!existingCase) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const sourceText = existingCase.sources
+      .map((source) => `${source.title}${source.publisher ? ` (${source.publisher})` : ''}: ${source.notes || source.url}`)
+      .join('\n');
+
+    const caseData: CaseData = {
+      caseName: existingCase.caseName,
+      citation: existingCase.neutralCitation || existingCase.docketNumber || '',
+      court: existingCase.courtName,
+      url: existingCase.sources[0]?.url || '',
+      year: (existingCase.filingDate || existingCase.decisionDate || existingCase.createdAt).getFullYear(),
+      summary: existingCase.summaryLong || existingCase.summaryShort,
+      fullText: sourceText || null,
+      publishedDate: existingCase.filingDate || existingCase.decisionDate || existingCase.createdAt,
+      source: existingCase.sources[0]?.publisher || existingCase.sources[0]?.sourceType || 'Manual case record',
+    };
+
+    const analysis = await analyzeCaseWithLLM(caseData);
+
+    if (!analysis) {
+      return res.status(502).json({ error: 'LLM analysis failed' });
+    }
+
+    const [issues, legalAreas] = await Promise.all([
+      prisma.issue.findMany({ where: { slug: { in: analysis.issues } } }),
+      prisma.legalArea.findMany({ where: { slug: { in: analysis.legalAreas } } }),
+    ]);
+
+    await prisma.$transaction([
+      prisma.caseIssue.deleteMany({ where: { caseId: id } }),
+      prisma.caseLegalArea.deleteMany({ where: { caseId: id } }),
+      prisma.case.update({
+        where: { id },
+        data: {
+          isAiRelated: analysis.isAiRelated,
+          summaryShort: analysis.summaryShort,
+          summaryLong: analysis.summaryLong,
+          whyItMatters: analysis.whyItMatters,
+          statusInternal: 'LLM reviewed',
+          issues: {
+            create: issues.map((issue) => ({
+              issue: { connect: { id: issue.id } },
+            })),
+          },
+          legalAreas: {
+            create: legalAreas.map((legalArea) => ({
+              legalArea: { connect: { id: legalArea.id } },
+            })),
+          },
+        },
+      }),
+    ]);
+
+    const updated = await prisma.case.findUnique({
+      where: { id },
+      include: {
+        issues: { include: { issue: true } },
+        legalAreas: { include: { legalArea: true } },
+        sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
+      },
+    });
+
+    res.json({
+      case: updated,
+      analysis,
+      unmatchedIssues: analysis.issues.filter((slug) => !issues.some((issue) => issue.slug === slug)),
+      unmatchedLegalAreas: analysis.legalAreas.filter((slug) => !legalAreas.some((area) => area.slug === slug)),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to analyze case' });
   }
 });
 

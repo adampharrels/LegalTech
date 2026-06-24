@@ -1,5 +1,5 @@
 import { getCases } from '@/actions/cases';
-import { deleteCase, createBasicCase } from '@/actions/admin';
+import { analyzeCase, deleteCase, createBasicCase } from '@/actions/admin';
 import Link from 'next/link';
 
 export default async function AdminPage() {
@@ -160,6 +160,7 @@ export default async function AdminPage() {
                    <th style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm) 0 0 0' }}>Case Name</th>
                    <th style={{ padding: '0.75rem 1rem' }}>Jurisdiction</th>
                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                   <th style={{ padding: '0.75rem 1rem' }}>Review</th>
                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right', borderRadius: '0 var(--radius-sm) 0 0' }}>Actions</th>
                  </tr>
                </thead>
@@ -175,21 +176,34 @@ export default async function AdminPage() {
                      <td style={{ padding: '0.75rem 1rem' }}>
                        <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusPublic}</span>
                      </td>
+                     <td style={{ padding: '0.75rem 1rem' }}>
+                       <span style={{ padding: '0.25rem 0.5rem', background: c.statusInternal === 'LLM reviewed' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.08)', color: c.statusInternal === 'LLM reviewed' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusInternal}</span>
+                     </td>
                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                        <form action={async () => {
-                          'use server'
-                          await deleteCase(c.id);
-                        }}>
-                          <button type="submit" style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
-                            Delete
-                          </button>
-                        </form>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <form action={async () => {
+                            'use server'
+                            await analyzeCase(c.id);
+                          }}>
+                            <button type="submit" style={{ color: 'var(--accent-primary)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
+                              Analyze
+                            </button>
+                          </form>
+                          <form action={async () => {
+                            'use server'
+                            await deleteCase(c.id);
+                          }}>
+                            <button type="submit" style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
+                              Delete
+                            </button>
+                          </form>
+                        </div>
                      </td>
                    </tr>
                  ))}
                  {cases.length === 0 && (
                    <tr>
-                     <td colSpan={4} style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No cases in database.</td>
+                     <td colSpan={5} style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No cases in database.</td>
                    </tr>
                  )}
                </tbody>

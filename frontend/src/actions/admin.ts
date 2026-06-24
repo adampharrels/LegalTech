@@ -14,6 +14,20 @@ export async function deleteCase(id: string) {
   revalidatePath('/dashboard');
 }
 
+export async function analyzeCase(id: string) {
+  const response = await fetch(`${API_URL}/cases/${id}/analyze`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to analyze case with LLM');
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath('/dashboard');
+}
+
 export async function createBasicCase(formData: FormData) {
   const payload = {
     caseName: formData.get('caseName'),

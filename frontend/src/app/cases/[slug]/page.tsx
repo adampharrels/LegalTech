@@ -153,6 +153,10 @@ export default async function CaseDetailPage({
                 <span style={{ fontWeight: 500 }}>{caseData.courtLevel}</span>
               </div>
               <div>
+                <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Review Status</span>
+                <span style={{ fontWeight: 500 }}>{caseData.statusInternal}</span>
+              </div>
+              <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Country</span>
                 <span style={{ fontWeight: 500 }}>{caseData.country}</span>
               </div>
