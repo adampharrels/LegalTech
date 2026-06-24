@@ -57,7 +57,7 @@ export async function analyzeCaseWithLLM(caseData: CaseData): Promise<LLMAnalysi
   try {
     const prompt = `
 You are an expert legal analyst specializing in Artificial Intelligence law.
-Analyze the following court case data and determine its relevance to AI.
+Analyse the following court case data and determine its relevance to AI.
 Extract structured summaries and tag it according to the provided taxonomy.
 
 Case Name: ${caseData.caseName}

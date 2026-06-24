@@ -186,7 +186,7 @@ export default async function AdminPage() {
                             await analyzeCase(c.id);
                           }}>
                             <button type="submit" style={{ color: 'var(--accent-primary)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
-                              Analyze
+                              Analyse
                             </button>
                           </form>
                           <form action={async () => {

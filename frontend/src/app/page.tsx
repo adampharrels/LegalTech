@@ -23,7 +23,7 @@ export default function Home() {
               AI <span className="text-gradient">Litigation</span> Navigator
             </h1>
             <p className="hero-subtitle">
-              Track, analyze, and understand AI-related court cases and legal developments reshaping technology law worldwide.
+              Track, analyse, and understand AI-related court cases and legal developments reshaping technology law worldwide.
             </p>
           </div>
 

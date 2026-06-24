@@ -20,7 +20,7 @@ export async function analyzeCase(id: string) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to analyze case with LLM');
+    throw new Error('Failed to analyse case with LLM');
   }
 
   const result = await response.json();

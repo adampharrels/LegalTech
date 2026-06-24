@@ -293,7 +293,7 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Failed to analyze case' });
+    res.status(500).json({ error: 'Failed to analyse case' });
   }
 });
 

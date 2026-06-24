@@ -34,7 +34,7 @@ async function main() {
           continue;
         }
 
-        console.log(`   Passed Keyword Filter, Analyzing with LLM: ${caseData.caseName}`);
+        console.log(`   Passed Keyword Filter, Analysing with LLM: ${caseData.caseName}`);
         const llmResult = await analyzeCaseWithLLM(caseData);
 
         if (!llmResult || !llmResult.isAiRelated) {

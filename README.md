@@ -1,6 +1,6 @@
 # AI Litigation Navigator
 
-A full-stack legal intelligence platform designed to track and analyze AI-related court cases and tribunal decisions.
+A full-stack legal intelligence platform designed to track and analyse AI-related court cases and tribunal decisions.
 
 ## Overview
 

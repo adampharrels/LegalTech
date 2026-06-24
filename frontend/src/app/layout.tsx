@@ -40,7 +40,7 @@ export default function RootLayout({
                 <div>
                   <h3 style={{ marginBottom: '0.5rem', fontSize: '0.875rem' }}>About</h3>
                   <p className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    AI Litigation Navigator tracks and analyzes AI-related court cases across global jurisdictions.
+                    AI Litigation Navigator tracks and analyses AI-related court cases across global jurisdictions.
                   </p>
                 </div>
                 <div>
