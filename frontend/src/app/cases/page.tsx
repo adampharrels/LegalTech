@@ -57,9 +57,7 @@ export default async function CasesPage({
                 <div className="glass-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
                   <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
                     <div>
-                      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', transition: 'color 0.2s' }}
-                          onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'}
-                          onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-primary)'}>
+                      <h2 className="hover-text-accent" style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {c.caseName}
                       </h2>
                       <div className="flex items-center gap-4 text-muted mt-4" style={{ fontSize: '0.875rem' }}>

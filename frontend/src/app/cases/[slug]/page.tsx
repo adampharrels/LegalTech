@@ -19,7 +19,7 @@ export default async function CaseDetailPage({
   return (
     <div className="flex-col gap-8 pb-12" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
       <div className="flex justify-between items-center" style={{ display: 'flex' }}>
-        <Link href="/cases" style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
+        <Link href="/cases" className="hover-text-primary" style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }}>
           <ArrowLeft size={16} style={{ marginRight: '0.5rem' }} />
           Back to Cases
         </Link>
@@ -171,7 +171,7 @@ export default async function CaseDetailPage({
               </h3>
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
                 {caseData.sources.map((source) => (
-                  <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
+                  <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" className="hover-text-accent" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span>{source.title}</span>
                       {source.isPrimary && (
@@ -198,13 +198,13 @@ export default async function CaseDetailPage({
               </h3>
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
                 {caseData.relatedTo?.map((rc) => (
-                  <Link key={rc.id} href={`/cases/${rc.relatedCase.slug}`} style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
+                  <Link key={rc.id} href={`/cases/${rc.relatedCase.slug}`} className="hover-text-accent" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ fontWeight: 500 }}>{rc.relatedCase.caseName}</div>
                     <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rc.relationshipType}</div>
                   </Link>
                 ))}
                 {caseData.relatedFrom?.map((rc) => (
-                  <Link key={rc.id} href={`/cases/${rc.case.slug}`} style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--accent-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
+                  <Link key={rc.id} href={`/cases/${rc.case.slug}`} className="hover-text-accent" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ fontWeight: 500 }}>{rc.case.caseName}</div>
                     <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rc.relationshipType}</div>
                   </Link>
