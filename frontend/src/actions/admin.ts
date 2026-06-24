@@ -23,9 +23,12 @@ export async function analyzeCase(id: string) {
     throw new Error('Failed to analyze case with LLM');
   }
 
+  const result = await response.json();
+
   revalidatePath('/admin');
   revalidatePath('/cases');
   revalidatePath('/dashboard');
+  redirect(`/cases/${result.case.slug}#llm-analysis`);
 }
 
 export async function createBasicCase(formData: FormData) {

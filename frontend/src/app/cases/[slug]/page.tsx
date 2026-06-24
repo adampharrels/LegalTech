@@ -82,6 +82,60 @@ export default async function CaseDetailPage({
             </section>
           )}
 
+          {caseData.statusInternal === 'LLM reviewed' && (
+            <section id="llm-analysis" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
+              <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>LLM Analysis</h2>
+                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: caseData.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: caseData.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {caseData.isAiRelated ? 'AI related' : 'Not AI related'}
+                </span>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Short Summary</h3>
+                <p style={{ lineHeight: 1.6 }}>{caseData.summaryShort}</p>
+              </div>
+
+              {caseData.summaryLong && (
+                <div>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Detailed Summary</h3>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{caseData.summaryLong}</p>
+                </div>
+              )}
+
+              {caseData.whyItMatters && (
+                <div>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Importance Note</h3>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{caseData.whyItMatters}</p>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Issues</h3>
+                  <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                    {caseData.issues.length > 0 ? caseData.issues.map((ci) => (
+                      <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                        {ci.issue.name}
+                      </span>
+                    )) : <span className="text-muted" style={{ fontSize: '0.875rem' }}>No issue tags generated.</span>}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Legal Areas</h3>
+                  <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
+                    {caseData.legalAreas.length > 0 ? caseData.legalAreas.map((cla) => (
+                      <span key={cla.legalAreaId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                        {cla.legalArea.name}
+                      </span>
+                    )) : <span className="text-muted" style={{ fontSize: '0.875rem' }}>No legal area tags generated.</span>}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="flex-col gap-4" style={{ display: 'flex' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Summary</h2>
             <div className="glass-panel text-muted" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', lineHeight: 1.6 }}>
