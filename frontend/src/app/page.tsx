@@ -58,15 +58,15 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-3 gap-6 mt-12 relative">
-            <div className="glass-panel text-center">
+            <div className="glass-panel surface-panel text-center">
               <div className="card-value">50+</div>
               <div className="card-label">Curated Cases</div>
             </div>
-            <div className="glass-panel text-center">
+            <div className="glass-panel surface-panel text-center">
               <div className="card-value">15</div>
               <div className="card-label">Legal Issues</div>
             </div>
-            <div className="glass-panel text-center">
+            <div className="glass-panel surface-panel text-center">
               <div className="card-value">Global</div>
               <div className="card-label">Jurisdictions</div>
             </div>

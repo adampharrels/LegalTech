@@ -30,7 +30,7 @@ export default async function DashboardPage() {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-        <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
           <div className="flex items-center gap-4 mb-4">
             <div style={{ padding: '0.75rem', background: 'rgba(6, 182, 212, 0.2)', borderRadius: 'var(--radius-md)', color: 'var(--accent-primary)' }}>
               <Scale size={24} />
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
           <div className="card-value">{totalCases}</div>
         </div>
 
-        <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
           <div className="flex items-center gap-4 mb-4">
             <div style={{ padding: '0.75rem', background: 'rgba(34, 197, 94, 0.2)', borderRadius: 'var(--radius-md)', color: '#22c55e' }}>
               <Activity size={24} />
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
           <div className="card-value">{activeCases}</div>
         </div>
 
-        <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
           <div className="flex items-center gap-4 mb-4">
             <div style={{ padding: '0.75rem', background: 'rgba(239, 68, 68, 0.2)', borderRadius: 'var(--radius-md)', color: '#ef4444' }}>
               <Globe size={24} />
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
           <div className="card-value">{highMateriality}</div>
         </div>
         
-        <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
           <div className="flex items-center gap-4 mb-4">
             <div style={{ padding: '0.75rem', background: 'rgba(168, 85, 247, 0.2)', borderRadius: 'var(--radius-md)', color: '#a855f7' }}>
               <BookOpen size={24} />

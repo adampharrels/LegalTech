@@ -54,7 +54,7 @@ export default async function CasesPage({
           ) : (
             cases.map((c) => (
               <Link href={`/cases/${c.slug}`} key={c.id} style={{ display: 'block' }}>
-                <div className="glass-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
+                <div className="glass-panel surface-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
                   <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
                     <div>
                       <h2 className="hover-text-accent" style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>

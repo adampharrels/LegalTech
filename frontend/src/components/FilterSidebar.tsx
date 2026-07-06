@@ -89,7 +89,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Search Query */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Search</h3>
         <input 
           type="text" 
@@ -104,7 +104,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Date Range Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Sort By</h3>
         <select
           style={inputStyle}
@@ -119,7 +119,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Date Range Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Filing Date</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -144,7 +144,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Jurisdiction Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Jurisdiction</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['United States', 'Australia', 'European Union', 'United Kingdom'].map(jur => (
@@ -162,7 +162,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Status Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Case Status</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['Active', 'Closed', 'Settled', 'Dismissed', 'Pending'].map(status => (
@@ -180,7 +180,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Materiality Score Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Materiality</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {['High', 'Medium', 'Low'].map(score => (
@@ -198,7 +198,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Issues Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Issues ({issues.length})</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '16rem', overflowY: 'auto' }}>
           {issues.map(issue => (
@@ -216,7 +216,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       </div>
 
       {/* Legal Areas Filter */}
-      <div className="glass-panel" style={sectionStyle}>
+      <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Legal Areas ({legalAreas.length})</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '16rem', overflowY: 'auto' }}>
           {legalAreas.map(area => (
