@@ -31,6 +31,30 @@ export async function analyzeCase(id: string) {
   redirect(`/cases/${result.case.slug}#llm-analysis`);
 }
 
+export async function reviewLlmAnalysis(formData: FormData) {
+  const analysisId = String(formData.get('analysisId') || '');
+  const caseSlug = String(formData.get('caseSlug') || '');
+  const decision = String(formData.get('decision') || '');
+  const reviewerName = formData.get('reviewerName');
+  const reviewerNotes = formData.get('reviewerNotes');
+
+  const response = await fetch(`${API_URL}/llm-analyses/${analysisId}/review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, reviewerName, reviewerNotes }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save human review');
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath(`/cases/${caseSlug}`);
+  revalidatePath('/dashboard');
+  redirect(`/cases/${caseSlug}#llm-analysis`);
+}
+
 export async function createBasicCase(formData: FormData) {
   const payload = {
     caseName: formData.get('caseName'),

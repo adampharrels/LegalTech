@@ -120,6 +120,10 @@ model LlmAnalysis {
   unmatchedIssues     String?
   unmatchedLegalAreas String?
   rawResponseJson     String
+  humanDecision       String?
+  reviewerName        String?
+  reviewerNotes       String?
+  reviewedAt          DateTime?
   createdAt           DateTime @default(now())
   case                Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
 

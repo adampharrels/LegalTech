@@ -78,6 +78,10 @@ export type LlmAnalysis = {
   unmatchedIssues: string | null;
   unmatchedLegalAreas: string | null;
   rawResponseJson: string;
+  humanDecision: string | null;
+  reviewerName: string | null;
+  reviewerNotes: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 };
 

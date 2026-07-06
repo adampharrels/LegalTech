@@ -319,6 +319,54 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
   }
 });
 
+// === REVIEW LLM ANALYSIS ===
+app.post('/api/llm-analyses/:id/review', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const { decision, reviewerName, reviewerNotes } = req.body;
+
+    if (!['accepted', 'rejected'].includes(String(decision))) {
+      return res.status(400).json({ error: 'decision must be accepted or rejected' });
+    }
+
+    const existingAnalysis = await prisma.llmAnalysis.findUnique({
+      where: { id },
+      include: { case: true },
+    });
+
+    if (!existingAnalysis) {
+      return res.status(404).json({ error: 'LLM analysis not found' });
+    }
+
+    const nextAnalysisStatus = decision === 'accepted' ? 'human-reviewed' : 'rejected';
+    const nextCaseStatus = decision === 'accepted' ? 'Human reviewed' : 'Needs review';
+
+    const [updatedAnalysis, updatedCase] = await prisma.$transaction([
+      prisma.llmAnalysis.update({
+        where: { id },
+        data: {
+          status: nextAnalysisStatus,
+          humanDecision: String(decision),
+          reviewerName: reviewerName ? String(reviewerName) : null,
+          reviewerNotes: reviewerNotes ? String(reviewerNotes) : null,
+          reviewedAt: new Date(),
+        },
+      }),
+      prisma.case.update({
+        where: { id: existingAnalysis.caseId },
+        data: {
+          statusInternal: nextCaseStatus,
+        },
+      }),
+    ]);
+
+    res.json({ analysis: updatedAnalysis, case: updatedCase });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to review LLM analysis' });
+  }
+});
+
 // === DELETE CASE ===
 app.delete('/api/cases/:id', async (req: Request, res: Response) => {
   try {
