@@ -16,6 +16,21 @@ export default async function CaseDetailPage({
     notFound();
   }
 
+  const latestAnalysis = caseData.llmAnalyses[0];
+  const parseSlugList = (value: string | null) => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
+  const generatedIssueSlugs = parseSlugList(latestAnalysis?.issueSlugs ?? null);
+  const generatedLegalAreaSlugs = parseSlugList(latestAnalysis?.legalAreaSlugs ?? null);
+  const unmatchedIssueSlugs = parseSlugList(latestAnalysis?.unmatchedIssues ?? null);
+  const unmatchedLegalAreaSlugs = parseSlugList(latestAnalysis?.unmatchedLegalAreas ?? null);
+
   return (
     <div className="flex-col gap-8 pb-12" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
       <div className="flex justify-between items-center" style={{ display: 'flex' }}>
@@ -82,31 +97,50 @@ export default async function CaseDetailPage({
             </section>
           )}
 
-          {caseData.statusInternal === 'LLM reviewed' && (
+          {latestAnalysis && (
             <section id="llm-analysis" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>LLM Analysis</h2>
-                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: caseData.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: caseData.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  {caseData.isAiRelated ? 'AI related' : 'Not AI related'}
+                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: latestAnalysis.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: latestAnalysis.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: latestAnalysis.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {latestAnalysis.isAiRelated ? 'AI related' : 'Not AI related'}
                 </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255, 255, 255, 0.03)' }}>
+                <div>
+                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Model</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.modelName}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Prompt Version</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.promptVersion}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Analysed At</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{new Date(latestAnalysis.createdAt).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Application Status</span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.status}</span>
+                </div>
               </div>
 
               <div>
                 <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Short Summary</h3>
-                <p style={{ lineHeight: 1.6 }}>{caseData.summaryShort}</p>
+                <p style={{ lineHeight: 1.6 }}>{latestAnalysis.summaryShort}</p>
               </div>
 
-              {caseData.summaryLong && (
+              {latestAnalysis.summaryLong && (
                 <div>
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Detailed Summary</h3>
-                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{caseData.summaryLong}</p>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{latestAnalysis.summaryLong}</p>
                 </div>
               )}
 
-              {caseData.whyItMatters && (
+              {latestAnalysis.whyItMatters && (
                 <div>
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Importance Note</h3>
-                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{caseData.whyItMatters}</p>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{latestAnalysis.whyItMatters}</p>
                 </div>
               )}
 
@@ -114,23 +148,29 @@ export default async function CaseDetailPage({
                 <div>
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Issues</h3>
                   <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                    {caseData.issues.length > 0 ? caseData.issues.map((ci) => (
-                      <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
-                        {ci.issue.name}
+                    {generatedIssueSlugs.length > 0 ? generatedIssueSlugs.map((slug) => (
+                      <span key={slug} style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                        {slug}
                       </span>
                     )) : <span className="text-muted" style={{ fontSize: '0.875rem' }}>No issue tags generated.</span>}
                   </div>
+                  {unmatchedIssueSlugs.length > 0 && (
+                    <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>Unmatched: {unmatchedIssueSlugs.join(', ')}</p>
+                  )}
                 </div>
 
                 <div>
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Legal Areas</h3>
                   <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                    {caseData.legalAreas.length > 0 ? caseData.legalAreas.map((cla) => (
-                      <span key={cla.legalAreaId} style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
-                        {cla.legalArea.name}
+                    {generatedLegalAreaSlugs.length > 0 ? generatedLegalAreaSlugs.map((slug) => (
+                      <span key={slug} style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                        {slug}
                       </span>
                     )) : <span className="text-muted" style={{ fontSize: '0.875rem' }}>No legal area tags generated.</span>}
                   </div>
+                  {unmatchedLegalAreaSlugs.length > 0 && (
+                    <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>Unmatched: {unmatchedLegalAreaSlugs.join(', ')}</p>
+                  )}
                 </div>
               </div>
             </section>

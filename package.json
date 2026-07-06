@@ -5,15 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "bash dev.sh",
-    "setup": "cd backend && npm install && npm run db:seed && cd ../frontend && npm install",
+    "setup": "cd backend && npm install && npx prisma migrate deploy && npm run db:seed && cd ../frontend && npm install",
     "backend": "cd backend && npx ts-node src/index.ts",
     "frontend": "cd frontend && npm run dev",
     "build:backend": "cd backend && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:backend && npm run build:frontend",
     "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:deploy": "cd backend && npx prisma migrate deploy",
     "db:seed": "cd backend && npx prisma db seed",
-    "db:reset": "cd backend && rm -f prisma/dev.db && npx prisma migrate dev --name init && npx prisma db seed",
+    "db:reset": "cd backend && rm -f prisma/dev.db && npx prisma migrate deploy && npx prisma db seed",
     "db:studio": "cd backend && npx prisma studio",
     "ingest": "cd backend && npm run ingest"
   },

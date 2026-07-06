@@ -63,6 +63,24 @@ export type CaseSource = {
   notes: string | null;
 };
 
+export type LlmAnalysis = {
+  id: string;
+  caseId: string;
+  modelName: string;
+  promptVersion: string;
+  status: string;
+  isAiRelated: boolean;
+  summaryShort: string;
+  summaryLong: string;
+  whyItMatters: string;
+  issueSlugs: string;
+  legalAreaSlugs: string;
+  unmatchedIssues: string | null;
+  unmatchedLegalAreas: string | null;
+  rawResponseJson: string;
+  createdAt: string;
+};
+
 export type RelatedCaseLink = {
   id: string;
   relationshipType: string;
@@ -83,6 +101,7 @@ export type CaseDetail = CaseSummary & {
   lastUpdated: string;
   events: CaseEvent[];
   sources: CaseSource[];
+  llmAnalyses: LlmAnalysis[];
   relatedTo: RelatedCaseLink[];
   relatedFrom: RelatedFromCaseLink[];
 };

@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
-import { analyzeCaseWithLLM } from './llm-processor';
+import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM } from './llm-processor';
 import type { CaseData } from './case-ingestor';
 
 dotenv.config();
@@ -95,6 +95,7 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
         legalAreas: { include: { legalArea: true } },
         events: { orderBy: { eventDate: 'desc' } },
         sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
+        llmAnalyses: { orderBy: { createdAt: 'desc' }, take: 5 },
         relatedTo: { include: { relatedCase: true } },
         relatedFrom: { include: { case: true } }
       }
@@ -251,6 +252,9 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
       prisma.legalArea.findMany({ where: { slug: { in: analysis.legalAreas } } }),
     ]);
 
+    const unmatchedIssues = analysis.issues.filter((slug) => !issues.some((issue) => issue.slug === slug));
+    const unmatchedLegalAreas = analysis.legalAreas.filter((slug) => !legalAreas.some((area) => area.slug === slug));
+
     await prisma.$transaction([
       prisma.caseIssue.deleteMany({ where: { caseId: id } }),
       prisma.caseLegalArea.deleteMany({ where: { caseId: id } }),
@@ -274,6 +278,23 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
           },
         },
       }),
+      prisma.llmAnalysis.create({
+        data: {
+          caseId: id,
+          modelName: LLM_MODEL_NAME,
+          promptVersion: LLM_PROMPT_VERSION,
+          status: 'applied',
+          isAiRelated: analysis.isAiRelated,
+          summaryShort: analysis.summaryShort,
+          summaryLong: analysis.summaryLong,
+          whyItMatters: analysis.whyItMatters,
+          issueSlugs: JSON.stringify(analysis.issues),
+          legalAreaSlugs: JSON.stringify(analysis.legalAreas),
+          unmatchedIssues: unmatchedIssues.length > 0 ? JSON.stringify(unmatchedIssues) : null,
+          unmatchedLegalAreas: unmatchedLegalAreas.length > 0 ? JSON.stringify(unmatchedLegalAreas) : null,
+          rawResponseJson: JSON.stringify(analysis),
+        },
+      }),
     ]);
 
     const updated = await prisma.case.findUnique({
@@ -282,14 +303,15 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
         issues: { include: { issue: true } },
         legalAreas: { include: { legalArea: true } },
         sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
+        llmAnalyses: { orderBy: { createdAt: 'desc' }, take: 5 },
       },
     });
 
     res.json({
       case: updated,
       analysis,
-      unmatchedIssues: analysis.issues.filter((slug) => !issues.some((issue) => issue.slug === slug)),
-      unmatchedLegalAreas: analysis.legalAreas.filter((slug) => !legalAreas.some((area) => area.slug === slug)),
+      unmatchedIssues,
+      unmatchedLegalAreas,
     });
   } catch (error) {
     console.error(error);

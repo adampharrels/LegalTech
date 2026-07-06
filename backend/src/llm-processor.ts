@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const ai = new GoogleGenAI(process.env.GEMINI_API_KEY ? { apiKey: process.env.GEMINI_API_KEY } : {});
+export const LLM_MODEL_NAME = 'gemini-2.5-flash';
+export const LLM_PROMPT_VERSION = 'case-analysis-v1';
 
 export interface LLMAnalysisResult {
   isAiRelated: boolean;
@@ -68,7 +70,7 @@ Full Text: ${caseData.fullText || 'N/A'}
     `.trim();
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: LLM_MODEL_NAME,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',

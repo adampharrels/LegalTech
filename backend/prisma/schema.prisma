@@ -8,50 +8,51 @@ datasource db {
 }
 
 model Case {
-  id                String       @id @default(uuid())
-  slug              String       @unique
-  caseName          String
-  neutralCitation   String?
-  docketNumber      String?
-  jurisdiction      String
-  country           String
-  courtName         String
-  courtLevel        String
-  statusPublic      String
-  statusInternal    String
-  materialityScore  String
-  filingDate        DateTime?
-  decisionDate      DateTime?
-  lastUpdated       DateTime     @updatedAt  @default(now())
-  summaryShort      String
-  summaryLong       String?
-  whyItMatters      String?
-  outcome           String?
-  isAiRelated       Boolean      @default(true)
-  createdAt         DateTime     @default(now())
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  caseName         String
+  neutralCitation  String?
+  docketNumber     String?
+  jurisdiction     String
+  country          String
+  courtName        String
+  courtLevel       String
+  statusPublic     String
+  statusInternal   String
+  materialityScore String
+  filingDate       DateTime?
+  decisionDate     DateTime?
+  lastUpdated      DateTime  @default(now()) @updatedAt
+  summaryShort     String
+  summaryLong      String?
+  whyItMatters     String?
+  outcome          String?
+  isAiRelated      Boolean   @default(true)
+  createdAt        DateTime  @default(now())
 
-  parties           Party[]
-  issues            CaseIssue[]
-  legalAreas        CaseLegalArea[]
-  events            Event[]
-  sources           Source[]
-  relatedTo         RelatedCase[] @relation("RelatedCasesForward")
-  relatedFrom       RelatedCase[] @relation("RelatedCasesBackward")
+  parties     Party[]
+  issues      CaseIssue[]
+  legalAreas  CaseLegalArea[]
+  events      Event[]
+  sources     Source[]
+  llmAnalyses LlmAnalysis[]
+  relatedTo   RelatedCase[]   @relation("RelatedCasesForward")
+  relatedFrom RelatedCase[]   @relation("RelatedCasesBackward")
 }
 
 model Party {
-  id        String  @id @default(uuid())
+  id        String @id @default(uuid())
   caseId    String
   name      String
-  role      String  // claimant, respondent, etc.
-  partyType String  // individual, company, etc.
-  case      Case    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  role      String // claimant, respondent, etc.
+  partyType String // individual, company, etc.
+  case      Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
 
 model Issue {
-  id    String       @id @default(uuid())
-  name  String       @unique
-  slug  String       @unique
+  id    String      @id @default(uuid())
+  name  String      @unique
+  slug  String      @unique
   cases CaseIssue[]
 }
 
@@ -65,9 +66,9 @@ model CaseIssue {
 }
 
 model LegalArea {
-  id    String           @id @default(uuid())
-  name  String           @unique
-  slug  String           @unique
+  id    String          @id @default(uuid())
+  name  String          @unique
+  slug  String          @unique
   cases CaseLegalArea[]
 }
 
@@ -92,16 +93,37 @@ model Event {
 }
 
 model Source {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   caseId      String
   sourceType  String
   title       String
   url         String
   publisher   String?
   publishedAt DateTime?
-  isPrimary   Boolean  @default(false)
+  isPrimary   Boolean   @default(false)
   notes       String?
-  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model LlmAnalysis {
+  id                  String   @id @default(uuid())
+  caseId              String
+  modelName           String
+  promptVersion       String
+  status              String
+  isAiRelated         Boolean
+  summaryShort        String
+  summaryLong         String
+  whyItMatters        String
+  issueSlugs          String
+  legalAreaSlugs      String
+  unmatchedIssues     String?
+  unmatchedLegalAreas String?
+  rawResponseJson     String
+  createdAt           DateTime @default(now())
+  case                Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
 }
 
 model RelatedCase {
@@ -112,6 +134,6 @@ model RelatedCase {
 
   case        Case @relation("RelatedCasesForward", fields: [caseId], references: [id], onDelete: Cascade)
   relatedCase Case @relation("RelatedCasesBackward", fields: [relatedCaseId], references: [id], onDelete: Cascade)
-  
+
   @@unique([caseId, relatedCaseId])
 }
