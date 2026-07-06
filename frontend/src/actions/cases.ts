@@ -3,6 +3,7 @@
 import type { CaseDetail, CaseSummary, Issue, LegalArea } from '@/types/cases';
 
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
+const TAXONOMY_CACHE_SECONDS = 3600;
 
 export async function getCases(filters?: {
   jurisdiction?: string | string[];
@@ -55,13 +56,13 @@ export async function getCaseBySlug(slug: string): Promise<CaseDetail | null> {
 }
 
 export async function getIssues(): Promise<Issue[]> {
-  const response = await fetch(`${API_URL}/issues`, { cache: 'no-store' });
+  const response = await fetch(`${API_URL}/issues`, { next: { revalidate: TAXONOMY_CACHE_SECONDS } });
   if (!response.ok) return [];
   return response.json() as Promise<Issue[]>;
 }
 
 export async function getLegalAreas(): Promise<LegalArea[]> {
-  const response = await fetch(`${API_URL}/legal-areas`, { cache: 'no-store' });
+  const response = await fetch(`${API_URL}/legal-areas`, { next: { revalidate: TAXONOMY_CACHE_SECONDS } });
   if (!response.ok) return [];
   return response.json() as Promise<LegalArea[]>;
 }

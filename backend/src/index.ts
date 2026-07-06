@@ -116,6 +116,7 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
 app.get('/api/issues', async (req: Request, res: Response) => {
   try {
     const issues = await prisma.issue.findMany({ orderBy: { name: 'asc' } });
+    res.set('Cache-Control', 'public, max-age=3600');
     res.json(issues);
   } catch (error) {
     console.error(error);
@@ -127,6 +128,7 @@ app.get('/api/issues', async (req: Request, res: Response) => {
 app.get('/api/legal-areas', async (req: Request, res: Response) => {
   try {
     const areas = await prisma.legalArea.findMany({ orderBy: { name: 'asc' } });
+    res.set('Cache-Control', 'public, max-age=3600');
     res.json(areas);
   } catch (error) {
     console.error(error);
