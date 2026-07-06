@@ -28,7 +28,7 @@ export async function analyzeCase(id: string) {
   revalidatePath('/admin');
   revalidatePath('/cases');
   revalidatePath('/dashboard');
-  redirect(`/cases/${result.case.slug}#llm-analysis`);
+  redirect(`/cases/${result.case.slug}#ai-summary`);
 }
 
 export async function reviewLlmAnalysis(formData: FormData) {

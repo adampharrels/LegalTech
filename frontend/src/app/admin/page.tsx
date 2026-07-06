@@ -177,7 +177,13 @@ export default async function AdminPage() {
                        <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusPublic}</span>
                      </td>
                      <td style={{ padding: '0.75rem 1rem' }}>
-                       <span style={{ padding: '0.25rem 0.5rem', background: c.statusInternal === 'LLM reviewed' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.08)', color: c.statusInternal === 'LLM reviewed' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusInternal}</span>
+                       {c.statusInternal === 'LLM reviewed' || c.statusInternal === 'Human reviewed' ? (
+                         <Link href={`/cases/${c.slug}#ai-summary`} className="hover-text-accent" style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', textDecoration: 'none' }}>
+                           View AI summary
+                         </Link>
+                       ) : (
+                         <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusInternal}</span>
+                       )}
                      </td>
                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -186,7 +192,7 @@ export default async function AdminPage() {
                             await analyzeCase(c.id);
                           }}>
                             <button type="submit" style={{ color: 'var(--accent-primary)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
-                              Analyse
+                              Summarise with AI
                             </button>
                           </form>
                           <form action={async () => {

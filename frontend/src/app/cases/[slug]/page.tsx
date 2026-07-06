@@ -30,6 +30,10 @@ export default async function CaseDetailPage({
   const generatedLegalAreaSlugs = parseSlugList(latestAnalysis?.legalAreaSlugs ?? null);
   const unmatchedIssueSlugs = parseSlugList(latestAnalysis?.unmatchedIssues ?? null);
   const unmatchedLegalAreaSlugs = parseSlugList(latestAnalysis?.unmatchedLegalAreas ?? null);
+  const hasAiSummary = Boolean(latestAnalysis || caseData.statusInternal === 'LLM reviewed' || caseData.statusInternal === 'Human reviewed');
+  const aiSummary = latestAnalysis?.summaryShort || caseData.summaryShort;
+  const aiDetailedSummary = latestAnalysis?.summaryLong || caseData.summaryLong;
+  const aiImportanceNote = latestAnalysis?.whyItMatters || caseData.whyItMatters;
 
   return (
     <div className="flex-col gap-8 pb-12" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
@@ -97,54 +101,56 @@ export default async function CaseDetailPage({
             </section>
           )}
 
-          {latestAnalysis && (
-            <section id="llm-analysis" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
+          {hasAiSummary && (
+            <section id="ai-summary" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>LLM Analysis</h2>
-                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: latestAnalysis.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: latestAnalysis.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: latestAnalysis.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  {latestAnalysis.isAiRelated ? 'AI related' : 'Not AI related'}
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>AI Summary</h2>
+                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: caseData.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: caseData.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {caseData.isAiRelated ? 'AI related' : 'Not AI related'}
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255, 255, 255, 0.03)' }}>
-                <div>
-                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Model</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.modelName}</span>
+              {latestAnalysis && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255, 255, 255, 0.03)' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Model</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.modelName}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Prompt Version</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.promptVersion}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Analysed At</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{new Date(latestAnalysis.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Application Status</span>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.status}</span>
+                  </div>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Prompt Version</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.promptVersion}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Analysed At</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{new Date(latestAnalysis.createdAt).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Application Status</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{latestAnalysis.status}</span>
-                </div>
-              </div>
+              )}
 
               <div>
-                <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Short Summary</h3>
-                <p style={{ lineHeight: 1.6 }}>{latestAnalysis.summaryShort}</p>
+                <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>AI Case Summary</h3>
+                <p style={{ lineHeight: 1.6 }}>{aiSummary}</p>
               </div>
 
-              {latestAnalysis.summaryLong && (
+              {aiDetailedSummary && (
                 <div>
-                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Detailed Summary</h3>
-                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{latestAnalysis.summaryLong}</p>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>AI Detailed Summary</h3>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{aiDetailedSummary}</p>
                 </div>
               )}
 
-              {latestAnalysis.whyItMatters && (
+              {aiImportanceNote && (
                 <div>
-                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Importance Note</h3>
-                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{latestAnalysis.whyItMatters}</p>
+                  <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Why It Matters</h3>
+                  <p className="text-muted" style={{ lineHeight: 1.6 }}>{aiImportanceNote}</p>
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+              {latestAnalysis && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                 <div>
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Issues</h3>
                   <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
@@ -172,7 +178,7 @@ export default async function CaseDetailPage({
                     <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>Unmatched: {unmatchedLegalAreaSlugs.join(', ')}</p>
                   )}
                 </div>
-              </div>
+              </div>}
             </section>
           )}
 
