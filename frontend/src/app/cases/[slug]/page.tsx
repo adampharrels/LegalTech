@@ -102,7 +102,7 @@ export default async function CaseDetailPage({
           )}
 
           {hasAiSummary && (
-            <section id="ai-summary" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
+            <section id="ai-summary" className="glass-panel surface-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>AI Summary</h2>
                 <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: caseData.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: caseData.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -184,7 +184,7 @@ export default async function CaseDetailPage({
 
           <section className="flex-col gap-4" style={{ display: 'flex' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Summary</h2>
-            <div className="glass-panel text-muted" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', lineHeight: 1.6 }}>
+            <div className="glass-panel surface-panel text-muted" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', lineHeight: 1.6 }}>
               <p>{caseData.summaryLong || caseData.summaryShort}</p>
             </div>
           </section>
