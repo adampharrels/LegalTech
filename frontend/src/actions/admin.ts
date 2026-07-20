@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import type { CaseCandidate } from '@/types/cases';
 
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
@@ -53,6 +54,98 @@ export async function reviewLlmAnalysis(formData: FormData) {
   revalidatePath(`/cases/${caseSlug}`);
   revalidatePath('/dashboard');
   redirect(`/cases/${caseSlug}#llm-analysis`);
+}
+
+export async function getCandidates(status?: string): Promise<CaseCandidate[]> {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+
+  const response = await fetch(`${API_URL}/candidates${params.toString() ? `?${params.toString()}` : ''}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json() as Promise<CaseCandidate[]>;
+}
+
+export async function createCandidate(formData: FormData) {
+  const payload = {
+    caseName: formData.get('caseName'),
+    neutralCitation: formData.get('neutralCitation'),
+    docketNumber: formData.get('docketNumber'),
+    jurisdiction: formData.get('jurisdiction'),
+    country: formData.get('country'),
+    courtName: formData.get('courtName'),
+    courtLevel: formData.get('courtLevel'),
+    sourceTitle: formData.get('sourceTitle'),
+    sourceUrl: formData.get('sourceUrl'),
+    sourcePublisher: formData.get('sourcePublisher'),
+    sourceType: formData.get('sourceType'),
+    sourcePublishedAt: formData.get('sourcePublishedAt'),
+    sourceConfidence: formData.get('sourceConfidence'),
+    aiRelevanceStatus: formData.get('aiRelevanceStatus'),
+    materialityLevel: formData.get('materialityLevel'),
+    summaryShort: formData.get('summaryShort'),
+    summaryLong: formData.get('summaryLong'),
+    reviewerNotes: formData.get('reviewerNotes'),
+  };
+
+  const response = await fetch(`${API_URL}/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create triage candidate');
+  }
+
+  revalidatePath('/admin/triage');
+  redirect('/admin/triage');
+}
+
+export async function acceptCandidate(formData: FormData) {
+  const candidateId = String(formData.get('candidateId') || '');
+  const reviewerNotes = formData.get('reviewerNotes');
+
+  const response = await fetch(`${API_URL}/candidates/${candidateId}/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reviewerNotes }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to accept candidate');
+  }
+
+  const result = await response.json();
+  revalidatePath('/admin/triage');
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath('/dashboard');
+  redirect(`/cases/${result.case.slug}`);
+}
+
+export async function rejectCandidate(formData: FormData) {
+  const candidateId = String(formData.get('candidateId') || '');
+  const rejectionReason = formData.get('rejectionReason');
+  const reviewerNotes = formData.get('reviewerNotes');
+
+  const response = await fetch(`${API_URL}/candidates/${candidateId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rejectionReason, reviewerNotes }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to reject candidate');
+  }
+
+  revalidatePath('/admin/triage');
+  redirect('/admin/triage');
 }
 
 export async function createBasicCase(formData: FormData) {

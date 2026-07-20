@@ -68,6 +68,35 @@ export type CaseSource = {
   notes: string | null;
 };
 
+export type CaseCandidate = {
+  id: string;
+  caseName: string;
+  neutralCitation: string | null;
+  docketNumber: string | null;
+  jurisdiction: string;
+  country: string;
+  courtName: string;
+  courtLevel: string;
+  candidateStatus: string;
+  rejectionReason: string | null;
+  reviewerNotes: string | null;
+  sourceConfidence: string;
+  sourceTitle: string;
+  sourceUrl: string | null;
+  sourcePublisher: string | null;
+  sourceType: string;
+  sourcePublishedAt: string | null;
+  aiRelevanceStatus: string;
+  materialityLevel: string;
+  summaryShort: string | null;
+  summaryLong: string | null;
+  discoveredAt: string;
+  reviewedAt: string | null;
+  acceptedCaseId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LlmAnalysis = {
   id: string;
   caseId: string;

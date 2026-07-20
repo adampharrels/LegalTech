@@ -45,6 +45,38 @@ model Case {
   relatedFrom RelatedCase[]   @relation("RelatedCasesBackward")
 }
 
+model CaseCandidate {
+  id                String    @id @default(uuid())
+  caseName          String
+  neutralCitation   String?
+  docketNumber      String?
+  jurisdiction      String
+  country           String
+  courtName         String
+  courtLevel        String
+  candidateStatus   String    @default("Ingested")
+  rejectionReason   String?
+  reviewerNotes     String?
+  sourceConfidence  String    @default("Unknown")
+  sourceTitle       String
+  sourceUrl         String?
+  sourcePublisher   String?
+  sourceType        String    @default("Court record")
+  sourcePublishedAt DateTime?
+  aiRelevanceStatus String    @default("Unknown")
+  materialityLevel  String    @default("Low")
+  summaryShort      String?
+  summaryLong       String?
+  discoveredAt      DateTime  @default(now())
+  reviewedAt        DateTime?
+  acceptedCaseId    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([candidateStatus, discoveredAt])
+  @@index([sourceUrl])
+}
+
 model Party {
   id        String @id @default(uuid())
   caseId    String
