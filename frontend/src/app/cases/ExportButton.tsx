@@ -11,7 +11,10 @@ export default function ExportButton({ cases }: { cases: CaseSummary[] }) {
       "Case Name",
       "Jurisdiction",
       "Court",
-      "Status",
+      "Lifecycle Status",
+      "Review Status",
+      "AI Relevance",
+      "Materiality Level",
       "Materiality Score",
       "Filing Date",
       "Short Summary"
@@ -21,8 +24,11 @@ export default function ExportButton({ cases }: { cases: CaseSummary[] }) {
       `"${(c.caseName || '').replace(/"/g, '""')}"`,
       `"${c.jurisdiction || ''}"`,
       `"${c.courtName || ''}"`,
-      `"${c.statusPublic || ''}"`,
-      `"${c.materialityScore || ''}"`,
+      `"${c.caseLifecycleStatus || ''}"`,
+      `"${c.reviewStatus || ''}"`,
+      `"${c.aiRelevanceStatus || ''}"`,
+      `"${c.materialityLevel || ''}"`,
+      `"${c.materialityScoreValue || ''}"`,
       c.filingDate ? `"${new Date(c.filingDate).toLocaleDateString()}"` : '""',
       `"${(c.summaryShort || '').replace(/"/g, '""')}"`
     ]);

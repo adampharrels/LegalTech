@@ -95,7 +95,7 @@ export default async function AdminPage() {
               </div>
               <div>
                 <label style={labelStyle}>Materiality</label>
-                <select name="materialityScore" style={inputStyle}>
+                <select name="materialityLevel" style={inputStyle}>
                   <option value="High" style={{ color: '#000' }}>High</option>
                   <option value="Medium" style={{ color: '#000' }}>Medium</option>
                   <option value="Low" style={{ color: '#000' }}>Low</option>
@@ -174,15 +174,15 @@ export default async function AdminPage() {
                      </td>
                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>{c.jurisdiction}</td>
                      <td style={{ padding: '0.75rem 1rem' }}>
-                       <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusPublic}</span>
+                       <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.caseLifecycleStatus}</span>
                      </td>
                      <td style={{ padding: '0.75rem 1rem' }}>
-                       {c.statusInternal === 'LLM reviewed' || c.statusInternal === 'Human reviewed' ? (
+                       {c.reviewStatus === 'LLM analysed' || c.reviewStatus === 'Human reviewed' ? (
                          <Link href={`/cases/${c.slug}#ai-summary`} className="hover-text-accent" style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', textDecoration: 'none' }}>
                            View AI summary
                          </Link>
                        ) : (
-                         <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.statusInternal}</span>
+                         <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.reviewStatus}</span>
                        )}
                      </td>
                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>

@@ -8,27 +8,32 @@ datasource db {
 }
 
 model Case {
-  id               String    @id @default(uuid())
-  slug             String    @unique
-  caseName         String
-  neutralCitation  String?
-  docketNumber     String?
-  jurisdiction     String
-  country          String
-  courtName        String
-  courtLevel       String
-  statusPublic     String
-  statusInternal   String
-  materialityScore String
-  filingDate       DateTime?
-  decisionDate     DateTime?
-  lastUpdated      DateTime  @default(now()) @updatedAt
-  summaryShort     String
-  summaryLong      String?
-  whyItMatters     String?
-  outcome          String?
-  isAiRelated      Boolean   @default(true)
-  createdAt        DateTime  @default(now())
+  id                    String    @id @default(uuid())
+  slug                  String    @unique
+  caseName              String
+  neutralCitation       String?
+  docketNumber          String?
+  jurisdiction          String
+  country               String
+  courtName             String
+  courtLevel            String
+  statusPublic          String
+  statusInternal        String
+  caseLifecycleStatus   String    @default("Active")
+  reviewStatus          String    @default("Unreviewed")
+  aiRelevanceStatus     String    @default("Unknown")
+  materialityLevel      String    @default("Low")
+  materialityScore      String
+  materialityScoreValue Int       @default(1)
+  filingDate            DateTime?
+  decisionDate          DateTime?
+  lastUpdated           DateTime  @default(now()) @updatedAt
+  summaryShort          String
+  summaryLong           String?
+  whyItMatters          String?
+  outcome               String?
+  isAiRelated           Boolean   @default(true)
+  createdAt             DateTime  @default(now())
 
   parties     Party[]
   issues      CaseIssue[]
@@ -106,7 +111,7 @@ model Source {
 }
 
 model LlmAnalysis {
-  id                  String   @id @default(uuid())
+  id                  String    @id @default(uuid())
   caseId              String
   modelName           String
   promptVersion       String
@@ -124,8 +129,8 @@ model LlmAnalysis {
   reviewerName        String?
   reviewerNotes       String?
   reviewedAt          DateTime?
-  createdAt           DateTime @default(now())
-  case                Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now())
+  case                Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId, createdAt])
 }

@@ -30,7 +30,7 @@ export default async function CaseDetailPage({
   const generatedLegalAreaSlugs = parseSlugList(latestAnalysis?.legalAreaSlugs ?? null);
   const unmatchedIssueSlugs = parseSlugList(latestAnalysis?.unmatchedIssues ?? null);
   const unmatchedLegalAreaSlugs = parseSlugList(latestAnalysis?.unmatchedLegalAreas ?? null);
-  const hasAiSummary = Boolean(latestAnalysis || caseData.statusInternal === 'LLM reviewed' || caseData.statusInternal === 'Human reviewed');
+  const hasAiSummary = Boolean(latestAnalysis || caseData.reviewStatus === 'LLM analysed' || caseData.reviewStatus === 'Human reviewed');
   const aiSummary = latestAnalysis?.summaryShort || caseData.summaryShort;
   const aiDetailedSummary = latestAnalysis?.summaryLong || caseData.summaryLong;
   const aiImportanceNote = latestAnalysis?.whyItMatters || caseData.whyItMatters;
@@ -50,14 +50,17 @@ export default async function CaseDetailPage({
         
         <div className="flex gap-2 mb-6" style={{ flexWrap: 'wrap', position: 'relative', zIndex: 10 }}>
           <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-primary)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {caseData.statusPublic}
+            {caseData.caseLifecycleStatus}
           </span>
-          {caseData.materialityScore === 'High' && (
+          {caseData.materialityLevel === 'High' && (
             <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <AlertTriangle size={12} />
               High Materiality
             </span>
           )}
+          <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.2)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {caseData.reviewStatus}
+          </span>
         </div>
 
         <h1 style={{ fontSize: '3rem', fontWeight: 700, letterSpacing: '-0.025em', marginBottom: '1rem', position: 'relative', zIndex: 10, lineHeight: 1.1 }}>
@@ -105,8 +108,8 @@ export default async function CaseDetailPage({
             <section id="ai-summary" className="glass-panel surface-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>AI Summary</h2>
-                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.isAiRelated ? 'rgba(6, 182, 212, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: caseData.isAiRelated ? 'var(--accent-primary)' : '#ef4444', border: caseData.isAiRelated ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  {caseData.isAiRelated ? 'AI related' : 'Not AI related'}
+                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.aiRelevanceStatus === 'Relevant' ? 'rgba(6, 182, 212, 0.12)' : caseData.aiRelevanceStatus === 'Not relevant' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.08)', color: caseData.aiRelevanceStatus === 'Relevant' ? 'var(--accent-primary)' : caseData.aiRelevanceStatus === 'Not relevant' ? '#ef4444' : 'var(--text-secondary)', border: caseData.aiRelevanceStatus === 'Relevant' ? '1px solid rgba(6, 182, 212, 0.2)' : caseData.aiRelevanceStatus === 'Not relevant' ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-color)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {caseData.aiRelevanceStatus}
                 </span>
               </div>
 
@@ -253,8 +256,20 @@ export default async function CaseDetailPage({
                 <span style={{ fontWeight: 500 }}>{caseData.courtLevel}</span>
               </div>
               <div>
+                <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Lifecycle Status</span>
+                <span style={{ fontWeight: 500 }}>{caseData.caseLifecycleStatus}</span>
+              </div>
+              <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Review Status</span>
-                <span style={{ fontWeight: 500 }}>{caseData.statusInternal}</span>
+                <span style={{ fontWeight: 500 }}>{caseData.reviewStatus}</span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)', display: 'block' }}>AI Relevance</span>
+                <span style={{ fontWeight: 500 }}>{caseData.aiRelevanceStatus}</span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Materiality</span>
+                <span style={{ fontWeight: 500 }}>{caseData.materialityLevel} ({caseData.materialityScoreValue}/10)</span>
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Country</span>

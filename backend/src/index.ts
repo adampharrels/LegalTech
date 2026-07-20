@@ -14,10 +14,40 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const materialityScoreByLevel: Record<string, number> = {
+  Low: 2,
+  Medium: 5,
+  High: 8,
+};
+
+function normaliseMaterialityLevel(value: unknown) {
+  const level = String(value || 'Low');
+  return ['Low', 'Medium', 'High'].includes(level) ? level : 'Low';
+}
+
+function scoreFromMateriality(value: unknown) {
+  const level = normaliseMaterialityLevel(value);
+  return materialityScoreByLevel[level] ?? 2;
+}
+
 // === GET CASES ===
 app.get('/api/cases', async (req: Request, res: Response) => {
   try {
-    const { jurisdiction, issueSlug, legalAreaSlug, query, materialityScore, statusPublic, dateFrom, dateTo, sort } = req.query;
+    const {
+      jurisdiction,
+      issueSlug,
+      legalAreaSlug,
+      query,
+      materialityScore,
+      materialityLevel,
+      statusPublic,
+      caseLifecycleStatus,
+      reviewStatus,
+      aiRelevanceStatus,
+      dateFrom,
+      dateTo,
+      sort
+    } = req.query;
     const where: any = {};
     const sortValue = String(sort || 'newest');
     const orderBy =
@@ -45,12 +75,20 @@ app.get('/api/cases', async (req: Request, res: Response) => {
       };
     }
 
-    if (materialityScore) {
-      where.materialityScore = { in: String(materialityScore).split(',') };
+    if (materialityLevel || materialityScore) {
+      where.materialityLevel = { in: String(materialityLevel || materialityScore).split(',') };
     }
 
-    if (statusPublic) {
-      where.statusPublic = { in: String(statusPublic).split(',') };
+    if (caseLifecycleStatus || statusPublic) {
+      where.caseLifecycleStatus = { in: String(caseLifecycleStatus || statusPublic).split(',') };
+    }
+
+    if (reviewStatus) {
+      where.reviewStatus = { in: String(reviewStatus).split(',') };
+    }
+
+    if (aiRelevanceStatus) {
+      where.aiRelevanceStatus = { in: String(aiRelevanceStatus).split(',') };
     }
 
     if (dateFrom || dateTo) {
@@ -148,7 +186,9 @@ app.post('/api/cases', async (req: Request, res: Response) => {
       courtName,
       courtLevel,
       statusPublic,
+      caseLifecycleStatus,
       materialityScore,
+      materialityLevel,
       filingDate,
       summaryShort,
       summaryLong,
@@ -164,6 +204,10 @@ app.post('/api/cases', async (req: Request, res: Response) => {
 
     const slug = caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     
+    const resolvedLifecycleStatus = caseLifecycleStatus || statusPublic || 'Pending';
+    const resolvedMaterialityLevel = normaliseMaterialityLevel(materialityLevel || materialityScore);
+    const resolvedMaterialityScoreValue = scoreFromMateriality(resolvedMaterialityLevel);
+
     const casePayload = {
       caseName,
       slug,
@@ -173,14 +217,19 @@ app.post('/api/cases', async (req: Request, res: Response) => {
       courtLevel: courtLevel || 'Trial',
       neutralCitation: neutralCitation || null,
       docketNumber: docketNumber || null,
-      statusPublic: statusPublic || 'Pending',
+      statusPublic: resolvedLifecycleStatus,
       statusInternal: 'Review',
-      materialityScore: materialityScore || 'Low',
+      caseLifecycleStatus: resolvedLifecycleStatus,
+      reviewStatus: 'Unreviewed',
+      aiRelevanceStatus: 'Unknown',
+      materialityLevel: resolvedMaterialityLevel,
+      materialityScore: resolvedMaterialityLevel,
+      materialityScoreValue: resolvedMaterialityScoreValue,
       filingDate: filingDate ? new Date(filingDate) : null,
       summaryShort: summaryShort || 'No summary provided.',
       summaryLong: summaryLong || null,
       whyItMatters: whyItMatters || null,
-      isAiRelated: true,
+      isAiRelated: false,
       ...(sourceUrl
         ? {
           sources: {
@@ -264,10 +313,12 @@ app.post('/api/cases/:id/analyze', async (req: Request, res: Response) => {
         where: { id },
         data: {
           isAiRelated: analysis.isAiRelated,
+          aiRelevanceStatus: analysis.isAiRelated ? 'Relevant' : 'Not relevant',
           summaryShort: analysis.summaryShort,
           summaryLong: analysis.summaryLong,
           whyItMatters: analysis.whyItMatters,
           statusInternal: 'LLM reviewed',
+          reviewStatus: 'LLM analysed',
           issues: {
             create: issues.map((issue) => ({
               issue: { connect: { id: issue.id } },
@@ -342,6 +393,7 @@ app.post('/api/llm-analyses/:id/review', async (req: Request, res: Response) => 
 
     const nextAnalysisStatus = decision === 'accepted' ? 'human-reviewed' : 'rejected';
     const nextCaseStatus = decision === 'accepted' ? 'Human reviewed' : 'Needs review';
+    const nextReviewStatus = decision === 'accepted' ? 'Human reviewed' : 'Rejected';
 
     const [updatedAnalysis, updatedCase] = await prisma.$transaction([
       prisma.llmAnalysis.update({
@@ -358,6 +410,7 @@ app.post('/api/llm-analyses/:id/review', async (req: Request, res: Response) => 
         where: { id: existingAnalysis.caseId },
         data: {
           statusInternal: nextCaseStatus,
+          reviewStatus: nextReviewStatus,
         },
       }),
     ]);

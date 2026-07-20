@@ -170,8 +170,8 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
               <input 
                 type="checkbox" 
                 style={checkboxStyle}
-                checked={isChecked('statusPublic', status)}
-                onChange={(e) => handleCheck('statusPublic', status, e.target.checked)}
+                checked={isChecked('caseLifecycleStatus', status)}
+                onChange={(e) => handleCheck('caseLifecycleStatus', status, e.target.checked)}
               />
               <span>{status}</span>
             </label>
@@ -188,8 +188,8 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
               <input 
                 type="checkbox" 
                 style={checkboxStyle}
-                checked={isChecked('materialityScore', score)}
-                onChange={(e) => handleCheck('materialityScore', score, e.target.checked)}
+                checked={isChecked('materialityLevel', score)}
+                onChange={(e) => handleCheck('materialityLevel', score, e.target.checked)}
               />
               <span>{score}</span>
             </label>

@@ -11,7 +11,11 @@ export async function getCases(filters?: {
   legalAreaSlug?: string | string[];
   query?: string;
   materialityScore?: string | string[];
+  materialityLevel?: string | string[];
   statusPublic?: string | string[];
+  caseLifecycleStatus?: string | string[];
+  reviewStatus?: string | string[];
+  aiRelevanceStatus?: string | string[];
   dateFrom?: string;
   dateTo?: string;
   sort?: string;
@@ -30,8 +34,10 @@ export async function getCases(filters?: {
   appendParam('jurisdiction', filters?.jurisdiction);
   appendParam('issueSlug', filters?.issueSlug);
   appendParam('legalAreaSlug', filters?.legalAreaSlug);
-  appendParam('materialityScore', filters?.materialityScore);
-  appendParam('statusPublic', filters?.statusPublic);
+  appendParam('materialityLevel', filters?.materialityLevel || filters?.materialityScore);
+  appendParam('caseLifecycleStatus', filters?.caseLifecycleStatus || filters?.statusPublic);
+  appendParam('reviewStatus', filters?.reviewStatus);
+  appendParam('aiRelevanceStatus', filters?.aiRelevanceStatus);
   appendParam('query', filters?.query);
   appendParam('dateFrom', filters?.dateFrom);
   appendParam('dateTo', filters?.dateTo);

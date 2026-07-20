@@ -33,7 +33,12 @@ export type CaseSummary = {
   neutralCitation?: string | null;
   statusPublic: string;
   statusInternal: string;
+  caseLifecycleStatus: string;
+  reviewStatus: string;
+  aiRelevanceStatus: string;
+  materialityLevel: string;
   materialityScore: string;
+  materialityScoreValue: number;
   filingDate: string | null;
   decisionDate?: string | null;
   summaryShort: string;

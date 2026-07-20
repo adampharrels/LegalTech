@@ -13,7 +13,11 @@ export default async function CasesPage({
     legalAreaSlug?: string | string[];
     jurisdiction?: string | string[];
     materialityScore?: string | string[];
+    materialityLevel?: string | string[];
     statusPublic?: string | string[];
+    caseLifecycleStatus?: string | string[];
+    reviewStatus?: string | string[];
+    aiRelevanceStatus?: string | string[];
     dateFrom?: string;
     dateTo?: string;
     sort?: string;
@@ -72,7 +76,10 @@ export default async function CasesPage({
                           {c.jurisdiction}
                         </span>
                         <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.75rem' }}>
-                          {c.statusPublic}
+                          {c.caseLifecycleStatus}
+                        </span>
+                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
+                          {c.reviewStatus}
                         </span>
                       </div>
                     </div>
