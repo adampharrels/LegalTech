@@ -25,6 +25,14 @@ export interface CaseData {
   source: string;
 }
 
+export interface CandidateHints {
+  aiRelevanceStatus?: string;
+  materialityLevel?: string;
+  summaryShort?: string;
+  summaryLong?: string;
+  reviewerNotes?: string;
+}
+
 export function passesKeywordFilter(caseData: CaseData): boolean {
   const textToSearch = `${caseData.caseName} ${caseData.summary || ''} ${caseData.fullText || ''}`.toLowerCase();
   const keywords = [
@@ -283,5 +291,34 @@ export function convertToDBFormat(caseData: CaseData) {
     summaryLong: caseData.summary || caseData.fullText || 'Australian court judgment',
     whyItMatters: 'Recent judgment from official Australian court sources',
     isAiRelated: true, // Filter for AI-related cases in processing layer
+  };
+}
+
+/**
+ * Convert fetched judgment data into a triage candidate rather than a published case.
+ */
+export function convertToCandidateFormat(caseData: CaseData, hints: CandidateHints = {}) {
+  const fallbackSummary = caseData.summary || caseData.fullText || null;
+
+  return {
+    caseName: caseData.caseName,
+    neutralCitation: caseData.citation || null,
+    docketNumber: null,
+    jurisdiction: 'Australia',
+    country: 'Australia',
+    courtName: caseData.court,
+    courtLevel: caseData.court.includes('Federal') ? 'Federal' : 'State',
+    candidateStatus: 'Needs human triage',
+    sourceConfidence: 'Official court source',
+    sourceTitle: caseData.caseName,
+    sourceUrl: caseData.url || null,
+    sourcePublisher: caseData.source,
+    sourceType: 'Court record',
+    sourcePublishedAt: caseData.publishedDate,
+    aiRelevanceStatus: hints.aiRelevanceStatus || 'Unknown',
+    materialityLevel: hints.materialityLevel || 'Low',
+    summaryShort: hints.summaryShort || (fallbackSummary ? fallbackSummary.substring(0, 200) : null),
+    summaryLong: hints.summaryLong || fallbackSummary,
+    reviewerNotes: hints.reviewerNotes || null,
   };
 }

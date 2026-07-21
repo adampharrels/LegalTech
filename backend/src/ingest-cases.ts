@@ -1,14 +1,45 @@
 /**
  * Case Ingestion CLI Tool
- * Fetches real Australian court cases from official RSS feeds
+ * Fetches real Australian court cases from official RSS feeds and queues them for triage
  * Run: npx ts-node src/ingest-cases.ts
  */
 
-import { CaseIngestor, convertToDBFormat, passesKeywordFilter } from './case-ingestor';
-import { analyzeCaseWithLLM } from './llm-processor';
+import { CaseIngestor, convertToCandidateFormat, passesKeywordFilter, type CaseData } from './case-ingestor';
+import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, type LLMAnalysisResult } from './llm-processor';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+function hasSpecificCitation(citation: string | null | undefined) {
+  return Boolean(citation && /\[\d{4}\]\s+[A-Z]+\s+\d+/i.test(citation));
+}
+
+function duplicateFiltersForCase(caseData: CaseData) {
+  return [
+    ...(hasSpecificCitation(caseData.citation) ? [{ neutralCitation: caseData.citation }] : []),
+    ...(caseData.url ? [{ sources: { some: { url: caseData.url } } }] : []),
+  ];
+}
+
+function duplicateFiltersForCandidate(caseData: CaseData) {
+  return [
+    ...(hasSpecificCitation(caseData.citation) ? [{ neutralCitation: caseData.citation }] : []),
+    ...(caseData.url ? [{ sourceUrl: caseData.url }] : []),
+  ];
+}
+
+function buildReviewerNotes(caseData: CaseData, llmResult: LLMAnalysisResult | null) {
+  if (!llmResult) {
+    return 'Passed keyword filter. LLM screening was unavailable, so this candidate needs human relevance review.';
+  }
+
+  return [
+    `LLM screened by ${LLM_MODEL_NAME} (${LLM_PROMPT_VERSION}).`,
+    `Suggested issues: ${llmResult.issues.length ? llmResult.issues.join(', ') : 'none'}.`,
+    `Suggested tracking domains: ${llmResult.legalAreas.length ? llmResult.legalAreas.join(', ') : 'none'}.`,
+    `Why it matters: ${llmResult.whyItMatters || caseData.summary || 'Not provided.'}`,
+  ].join('\n');
+}
 
 async function main() {
   try {
@@ -21,9 +52,9 @@ async function main() {
       return;
     }
 
-    console.log(`\nImporting ${cases.length} cases into database...\n`);
+    console.log(`\nScreening ${cases.length} cases for the triage queue...\n`);
 
-    let importedCount = 0;
+    let queuedCount = 0;
     let skippedCount = 0;
 
     for (const caseData of cases) {
@@ -34,89 +65,66 @@ async function main() {
           continue;
         }
 
-        console.log(`   Passed Keyword Filter, Analysing with LLM: ${caseData.caseName}`);
+        console.log(`   Passed keyword filter, analysing with LLM: ${caseData.caseName}`);
         const llmResult = await analyzeCaseWithLLM(caseData);
 
-        if (!llmResult || !llmResult.isAiRelated) {
+        if (llmResult && !llmResult.isAiRelated) {
           console.log(`   Skipped (Pass 2 - LLM Filter): ${caseData.caseName}`);
           skippedCount++;
           continue;
         }
 
-        const dbCase = convertToDBFormat(caseData);
-        // Merge LLM results
-        dbCase.summaryShort = llmResult.summaryShort;
-        dbCase.summaryLong = llmResult.summaryLong;
-        dbCase.whyItMatters = llmResult.whyItMatters;
-        dbCase.isAiRelated = llmResult.isAiRelated;
+        const existingCaseFilters = duplicateFiltersForCase(caseData);
+        const existingCase = existingCaseFilters.length > 0
+          ? await prisma.case.findFirst({ where: { OR: existingCaseFilters } })
+          : null;
 
-        // Check if already exists
-        const exists = await prisma.case.findUnique({
-          where: { slug: dbCase.slug },
-        });
-
-        if (!exists) {
-          const createdCase = await prisma.case.create({
-            data: {
-              slug: dbCase.slug,
-              caseName: dbCase.caseName,
-              neutralCitation: dbCase.neutralCitation,
-              jurisdiction: dbCase.jurisdiction,
-              country: dbCase.country,
-              courtName: dbCase.courtName,
-              courtLevel: dbCase.courtLevel,
-              statusPublic: dbCase.statusPublic,
-              statusInternal: dbCase.statusInternal,
-              caseLifecycleStatus: dbCase.caseLifecycleStatus,
-              reviewStatus: dbCase.reviewStatus,
-              aiRelevanceStatus: dbCase.isAiRelated ? 'Relevant' : 'Not relevant',
-              materialityLevel: dbCase.materialityLevel,
-              materialityScore: dbCase.materialityScore,
-              materialityScoreValue: dbCase.materialityScoreValue,
-              filingDate: dbCase.filingDate,
-              summaryShort: dbCase.summaryShort,
-              summaryLong: dbCase.summaryLong,
-              whyItMatters: dbCase.whyItMatters,
-              isAiRelated: dbCase.isAiRelated,
-            },
-          });
-
-          // Connect Issues
-          for (const issueSlug of llmResult.issues) {
-            const issue = await prisma.issue.findUnique({ where: { slug: issueSlug } });
-            if (issue) {
-              await prisma.caseIssue.create({
-                data: { caseId: createdCase.id, issueId: issue.id }
-              }).catch(() => {});
-            }
-          }
-
-          // Connect Legal Areas
-          for (const areaSlug of llmResult.legalAreas) {
-            const area = await prisma.legalArea.findUnique({ where: { slug: areaSlug } });
-            if (area) {
-              await prisma.caseLegalArea.create({
-                data: { caseId: createdCase.id, legalAreaId: area.id }
-              }).catch(() => {});
-            }
-          }
-
-          console.log(`   Imported: ${dbCase.caseName}`);
-          importedCount++;
-        } else {
-          console.log(`   Already in database: ${dbCase.caseName}`);
+        if (existingCase) {
+          console.log(`   Already accepted as a case: ${caseData.caseName}`);
           skippedCount++;
+          continue;
         }
+
+        const existingCandidateFilters = duplicateFiltersForCandidate(caseData);
+        const existingCandidate = existingCandidateFilters.length > 0
+          ? await prisma.caseCandidate.findFirst({
+            where: {
+              candidateStatus: { notIn: ['Rejected'] },
+              OR: existingCandidateFilters,
+            },
+          })
+          : null;
+
+        if (existingCandidate) {
+          console.log(`   Already queued for triage: ${caseData.caseName}`);
+          skippedCount++;
+          continue;
+        }
+
+        const candidateHints = {
+          aiRelevanceStatus: llmResult ? 'Relevant' : 'Unknown',
+          materialityLevel: llmResult ? 'High' : 'Medium',
+          reviewerNotes: buildReviewerNotes(caseData, llmResult),
+          ...(llmResult?.summaryShort ? { summaryShort: llmResult.summaryShort } : {}),
+          ...(llmResult?.summaryLong ? { summaryLong: llmResult.summaryLong } : {}),
+        };
+
+        const candidateData = convertToCandidateFormat(caseData, candidateHints);
+
+        await prisma.caseCandidate.create({ data: candidateData });
+
+        console.log(`   Queued for triage: ${caseData.caseName}`);
+        queuedCount++;
       } catch (error) {
         console.error(
-          `   Error importing case: ${error instanceof Error ? error.message : String(error)}`
+          `   Error queueing candidate: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     }
 
     console.log('\n' + '='.repeat(60));
-    console.log('Import Complete:');
-    console.log(`   New cases imported: ${importedCount}`);
+    console.log('Ingestion Complete:');
+    console.log(`   New candidates queued: ${queuedCount}`);
     console.log(`   Cases skipped (already in DB): ${skippedCount}`);
     console.log(`   Total processed: ${cases.length}`);
     console.log('='.repeat(60) + '\n');

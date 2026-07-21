@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { convertToDBFormat, passesKeywordFilter, type CaseData } from './case-ingestor';
+import { convertToCandidateFormat, convertToDBFormat, passesKeywordFilter, type CaseData } from './case-ingestor';
 
 function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   return {
@@ -59,4 +59,25 @@ test('convertToDBFormat truncates long generated slugs', () => {
   );
 
   assert.equal(converted.slug.length, 100);
+});
+
+test('convertToCandidateFormat maps ingested cases into triage candidates', () => {
+  const converted = convertToCandidateFormat(makeCaseData(), {
+    aiRelevanceStatus: 'Relevant',
+    materialityLevel: 'High',
+    summaryShort: 'LLM summary',
+    summaryLong: 'Long LLM summary',
+    reviewerNotes: 'LLM screened.',
+  });
+
+  assert.equal(converted.caseName, 'Example Pty Ltd v Platform Inc [2026] FCA 123');
+  assert.equal(converted.neutralCitation, '[2026] FCA 123');
+  assert.equal(converted.candidateStatus, 'Needs human triage');
+  assert.equal(converted.sourceConfidence, 'Official court source');
+  assert.equal(converted.sourceTitle, 'Example Pty Ltd v Platform Inc [2026] FCA 123');
+  assert.equal(converted.sourcePublisher, 'Federal Court RSS Feed');
+  assert.equal(converted.aiRelevanceStatus, 'Relevant');
+  assert.equal(converted.materialityLevel, 'High');
+  assert.equal(converted.summaryShort, 'LLM summary');
+  assert.equal(converted.reviewerNotes, 'LLM screened.');
 });
