@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CaseIngestor, convertToCandidateFormat, convertToDBFormat, passesKeywordFilter, type CaseData, type CaseSource } from './case-ingestor';
+import { CaseIngestor, convertToCandidateFormat, convertToDBFormat, getMatchedKeywords, passesKeywordFilter, type CaseData, type CaseSource } from './case-ingestor';
 
 function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   return {
@@ -27,6 +27,16 @@ test('passesKeywordFilter detects AI-related terms across case text', () => {
     passesKeywordFilter(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })),
     true
   );
+});
+
+test('getMatchedKeywords returns readable evidence labels', () => {
+  const matchedKeywords = getMatchedKeywords(
+    makeCaseData({
+      summary: 'The regulator raised biometric and facial recognition concerns about an automated system.',
+    })
+  );
+
+  assert.deepEqual(matchedKeywords, ['automated system', 'facial recognition', 'biometric']);
 });
 
 test('passesKeywordFilter rejects unrelated cases', () => {
@@ -72,6 +82,11 @@ test('convertToCandidateFormat maps ingested cases into triage candidates', () =
     summaryShort: 'LLM summary',
     summaryLong: 'Long LLM summary',
     reviewerNotes: 'LLM screened.',
+    matchedKeywords: ['automated decision-making'],
+    llmScreeningStatus: 'Relevant',
+    llmScreeningReason: 'The dispute turns on automated decisions.',
+    duplicateCheckResult: 'No duplicate found.',
+    fetchedAt: new Date('2026-03-16T00:00:00.000Z'),
   });
 
   assert.equal(converted.caseName, 'Example Pty Ltd v Platform Inc [2026] FCA 123');
@@ -84,6 +99,11 @@ test('convertToCandidateFormat maps ingested cases into triage candidates', () =
   assert.equal(converted.materialityLevel, 'High');
   assert.equal(converted.summaryShort, 'LLM summary');
   assert.equal(converted.reviewerNotes, 'LLM screened.');
+  assert.equal(converted.matchedKeywords, JSON.stringify(['automated decision-making']));
+  assert.equal(converted.llmScreeningStatus, 'Relevant');
+  assert.equal(converted.llmScreeningReason, 'The dispute turns on automated decisions.');
+  assert.equal(converted.duplicateCheckResult, 'No duplicate found.');
+  assert.equal(converted.fetchedAt?.toISOString(), '2026-03-16T00:00:00.000Z');
 });
 
 test('convertToCandidateFormat preserves regulator source metadata', () => {
@@ -96,6 +116,9 @@ test('convertToCandidateFormat preserves regulator source metadata', () => {
       sourceType: 'Regulator release',
       sourceConfidence: 'Official regulator publication',
       courtLevel: 'Regulator',
+      sourceAdapterName: 'ASIC media releases',
+      sourceCategory: 'Regulator',
+      extractionMethod: 'HTML',
     })
   );
 
@@ -104,6 +127,9 @@ test('convertToCandidateFormat preserves regulator source metadata', () => {
   assert.equal(converted.courtLevel, 'Regulator');
   assert.equal(converted.sourceType, 'Regulator release');
   assert.equal(converted.sourceConfidence, 'Official regulator publication');
+  assert.equal(converted.sourceAdapterName, 'ASIC media releases');
+  assert.equal(converted.sourceCategory, 'Regulator');
+  assert.equal(converted.extractionMethod, 'HTML');
 });
 
 test('CaseIngestor coordinates injected sources and deduplicates by case name and URL', async () => {

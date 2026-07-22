@@ -95,6 +95,8 @@ npm run ingest
 
 The ingestion command fetches official Australian court, regulator, and guidance sources, applies the keyword and LLM relevance screens, and creates triage candidates instead of publishing cases directly. Review new candidates at `/admin/triage`; accepting a candidate creates the case record and links the primary source.
 
+Each ingested candidate stores evidence for review, including matched keywords, source adapter name, source category, extraction method, LLM screening status, duplicate check result, and fetch timestamp.
+
 Current ingestion adapters include:
 
 - Federal Court judgments RSS

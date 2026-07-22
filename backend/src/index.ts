@@ -43,6 +43,18 @@ function normaliseSourceConfidence(value: unknown) {
   return sourceConfidenceLevels.includes(confidence as typeof sourceConfidenceLevels[number]) ? confidence : 'Unknown';
 }
 
+function normaliseMatchedKeywords(value: unknown) {
+  if (!value) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    return JSON.stringify(value.filter((keyword): keyword is string => typeof keyword === 'string'));
+  }
+
+  return String(value);
+}
+
 function slugifyCaseName(caseName: string) {
   return caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 100);
 }
@@ -107,6 +119,14 @@ app.post('/api/candidates', async (req: Request, res: Response) => {
       sourceType,
       sourcePublishedAt,
       sourceConfidence,
+      sourceAdapterName,
+      sourceCategory,
+      extractionMethod,
+      matchedKeywords,
+      llmScreeningStatus,
+      llmScreeningReason,
+      duplicateCheckResult,
+      fetchedAt,
       aiRelevanceStatus,
       materialityLevel,
       summaryShort,
@@ -151,6 +171,14 @@ app.post('/api/candidates', async (req: Request, res: Response) => {
         sourceType: sourceType || 'Court record',
         sourcePublishedAt: sourcePublishedAt ? new Date(sourcePublishedAt) : null,
         sourceConfidence: sourceConfidence || 'Unknown',
+        sourceAdapterName: sourceAdapterName || null,
+        sourceCategory: sourceCategory || 'Manual',
+        extractionMethod: extractionMethod || 'Manual',
+        matchedKeywords: normaliseMatchedKeywords(matchedKeywords),
+        llmScreeningStatus: llmScreeningStatus || 'Not screened',
+        llmScreeningReason: llmScreeningReason || null,
+        duplicateCheckResult: duplicateCheckResult || 'Manual candidate; duplicate check deferred to acceptance.',
+        fetchedAt: fetchedAt ? new Date(fetchedAt) : new Date(),
         aiRelevanceStatus: aiRelevanceStatus || 'Unknown',
         materialityLevel: normaliseMaterialityLevel(materialityLevel),
         summaryShort: summaryShort || null,

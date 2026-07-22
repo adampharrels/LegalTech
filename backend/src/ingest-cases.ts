@@ -4,7 +4,7 @@
  * Run: npx ts-node src/ingest-cases.ts
  */
 
-import { CaseIngestor, convertToCandidateFormat, passesKeywordFilter, type CaseData } from './case-ingestor';
+import { CaseIngestor, convertToCandidateFormat, getMatchedKeywords, type CaseData } from './case-ingestor';
 import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, type LLMAnalysisResult } from './llm-processor';
 import { PrismaClient } from '@prisma/client';
 
@@ -29,11 +29,18 @@ function duplicateFiltersForCandidate(caseData: CaseData) {
 }
 
 function buildReviewerNotes(caseData: CaseData, llmResult: LLMAnalysisResult | null) {
+  const matchedKeywords = getMatchedKeywords(caseData);
+  const keywordNote = `Matched keywords: ${matchedKeywords.length ? matchedKeywords.join(', ') : 'none'}.`;
+
   if (!llmResult) {
-    return 'Passed keyword filter. LLM screening was unavailable, so this candidate needs human relevance review.';
+    return [
+      keywordNote,
+      'Passed keyword filter. LLM screening was unavailable, so this candidate needs human relevance review.',
+    ].join('\n');
   }
 
   return [
+    keywordNote,
     `LLM screened by ${LLM_MODEL_NAME} (${LLM_PROMPT_VERSION}).`,
     `Suggested issues: ${llmResult.issues.length ? llmResult.issues.join(', ') : 'none'}.`,
     `Suggested tracking domains: ${llmResult.legalAreas.length ? llmResult.legalAreas.join(', ') : 'none'}.`,
@@ -59,7 +66,9 @@ async function main() {
 
     for (const caseData of cases) {
       try {
-        if (!passesKeywordFilter(caseData)) {
+        const matchedKeywords = getMatchedKeywords(caseData);
+
+        if (matchedKeywords.length === 0) {
           console.log(`   Skipped (Pass 1 - Keyword Filter): ${caseData.caseName}`);
           skippedCount++;
           continue;
@@ -104,6 +113,11 @@ async function main() {
         const candidateHints = {
           aiRelevanceStatus: llmResult ? 'Relevant' : 'Unknown',
           materialityLevel: llmResult ? 'High' : 'Medium',
+          matchedKeywords,
+          llmScreeningStatus: llmResult ? 'Relevant' : 'Unavailable',
+          llmScreeningReason: llmResult?.whyItMatters || 'LLM screening unavailable; queued after keyword match.',
+          duplicateCheckResult: 'No accepted case or open candidate matched by citation or source URL.',
+          fetchedAt: caseData.fetchedAt || new Date(),
           reviewerNotes: buildReviewerNotes(caseData, llmResult),
           ...(llmResult?.summaryShort ? { summaryShort: llmResult.summaryShort } : {}),
           ...(llmResult?.summaryLong ? { summaryLong: llmResult.summaryLong } : {}),

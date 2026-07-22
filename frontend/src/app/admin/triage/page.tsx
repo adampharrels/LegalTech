@@ -21,6 +21,16 @@ const labelStyle = {
   color: 'var(--text-secondary)'
 };
 
+function parseMatchedKeywords(value: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function TriagePage() {
   const candidates = await getCandidates();
   const openCandidates = candidates.filter((candidate) => !['Accepted', 'Rejected'].includes(candidate.candidateStatus));
@@ -134,7 +144,10 @@ export default async function TriagePage() {
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Needs Triage ({openCandidates.length})</h2>
           {openCandidates.length === 0 ? (
             <div className="glass-panel surface-panel text-center text-muted" style={{ padding: '2rem' }}>No open candidates.</div>
-          ) : openCandidates.map((candidate) => (
+          ) : openCandidates.map((candidate) => {
+            const matchedKeywords = parseMatchedKeywords(candidate.matchedKeywords);
+
+            return (
             <article key={candidate.id} className="glass-panel surface-panel" style={{ padding: '1.25rem' }}>
               <div className="flex justify-between" style={{ gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 <div>
@@ -150,6 +163,8 @@ export default async function TriagePage() {
 
               <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.sourceConfidence}</span>
+                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.sourceCategory}</span>
+                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.extractionMethod}</span>
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.aiRelevanceStatus}</span>
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.materialityLevel}</span>
               </div>
@@ -163,6 +178,40 @@ export default async function TriagePage() {
                   {candidate.sourceTitle}
                 </a>
               )}
+
+              <div style={{ marginTop: '1rem', padding: '0.875rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255, 255, 255, 0.03)' }}>
+                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>Ingestion Evidence</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', fontSize: '0.75rem' }}>
+                  <div>
+                    <span className="text-muted" style={{ display: 'block' }}>Adapter</span>
+                    <span>{candidate.sourceAdapterName || 'Manual entry'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted" style={{ display: 'block' }}>LLM Screen</span>
+                    <span>{candidate.llmScreeningStatus}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted" style={{ display: 'block' }}>Fetched</span>
+                    <span>{candidate.fetchedAt ? new Date(candidate.fetchedAt).toLocaleString() : 'Not recorded'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted" style={{ display: 'block' }}>Duplicate Check</span>
+                    <span>{candidate.duplicateCheckResult || 'Not recorded'}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2" style={{ flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                  {matchedKeywords.length > 0 ? matchedKeywords.map((keyword) => (
+                    <span key={keyword} style={{ padding: '0.2rem 0.45rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
+                      {keyword}
+                    </span>
+                  )) : (
+                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>No keyword evidence recorded.</span>
+                  )}
+                </div>
+                {candidate.llmScreeningReason && (
+                  <p className="text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.5, marginTop: '0.75rem' }}>{candidate.llmScreeningReason}</p>
+                )}
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                 <form action={acceptCandidate} className="flex-col gap-2" style={{ display: 'flex' }}>
@@ -190,7 +239,8 @@ export default async function TriagePage() {
                 </form>
               </div>
             </article>
-          ))}
+          );
+          })}
 
           {reviewedCandidates.length > 0 && (
             <section className="glass-panel surface-panel" style={{ marginTop: '1rem' }}>

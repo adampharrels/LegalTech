@@ -63,6 +63,14 @@ model CaseCandidate {
   sourcePublisher   String?
   sourceType        String    @default("Court record")
   sourcePublishedAt DateTime?
+  sourceAdapterName String?
+  sourceCategory    String    @default("Court")
+  extractionMethod  String    @default("Manual")
+  matchedKeywords   String?
+  llmScreeningStatus String   @default("Not screened")
+  llmScreeningReason String?
+  duplicateCheckResult String?
+  fetchedAt         DateTime?
   aiRelevanceStatus String    @default("Unknown")
   materialityLevel  String    @default("Low")
   summaryShort      String?
@@ -75,6 +83,7 @@ model CaseCandidate {
 
   @@index([candidateStatus, discoveredAt])
   @@index([sourceUrl])
+  @@index([sourceCategory, extractionMethod])
 }
 
 model Party {

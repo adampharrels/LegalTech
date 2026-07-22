@@ -27,6 +27,10 @@ export interface CaseData {
   courtLevel?: string;
   sourceType?: string;
   sourceConfidence?: string;
+  sourceAdapterName?: string;
+  sourceCategory?: string;
+  extractionMethod?: string;
+  fetchedAt?: Date;
 }
 
 export interface CandidateHints {
@@ -35,6 +39,11 @@ export interface CandidateHints {
   summaryShort?: string;
   summaryLong?: string;
   reviewerNotes?: string;
+  matchedKeywords?: string[];
+  llmScreeningStatus?: string;
+  llmScreeningReason?: string;
+  duplicateCheckResult?: string;
+  fetchedAt?: Date;
 }
 
 type RssSourceConfig = {
@@ -64,34 +73,40 @@ type HtmlSourceConfig = {
 };
 
 const AI_SIGNAL_PATTERNS = [
-  /\bartificial intelligence\b/i,
-  /\bgenerative ai\b/i,
-  /\bgen ai\b/i,
-  /\bai\b/i,
-  /\balgorithm(ic)?\b/i,
-  /\bmachine learning\b/i,
-  /\blarge language model\b/i,
-  /\bllm\b/i,
-  /\bchatgpt\b/i,
-  /\bopenai\b/i,
-  /\bgemini\b/i,
-  /\bcopilot\b/i,
-  /\bautomated decision/i,
-  /\bautomated system/i,
-  /\bfacial recognition\b/i,
-  /\bbiometric\b/i,
-  /\bdeepfake\b/i,
-  /\bnudify(ing)?\b/i,
-  /\bdata scraping\b/i,
-  /\btraining data\b/i,
-  /\bclearview\b/i,
-  /\bmetigy\b/i,
-  /\bai marketing\b/i,
+  { label: 'artificial intelligence', pattern: /\bartificial intelligence\b/i },
+  { label: 'generative AI', pattern: /\bgenerative ai\b/i },
+  { label: 'gen AI', pattern: /\bgen ai\b/i },
+  { label: 'AI', pattern: /\bai\b/i },
+  { label: 'algorithmic systems', pattern: /\balgorithm(ic)?\b/i },
+  { label: 'machine learning', pattern: /\bmachine learning\b/i },
+  { label: 'large language model', pattern: /\blarge language model\b/i },
+  { label: 'LLM', pattern: /\bllm\b/i },
+  { label: 'ChatGPT', pattern: /\bchatgpt\b/i },
+  { label: 'OpenAI', pattern: /\bopenai\b/i },
+  { label: 'Gemini', pattern: /\bgemini\b/i },
+  { label: 'Copilot', pattern: /\bcopilot\b/i },
+  { label: 'automated decision-making', pattern: /\bautomated decision/i },
+  { label: 'automated system', pattern: /\bautomated system/i },
+  { label: 'facial recognition', pattern: /\bfacial recognition\b/i },
+  { label: 'biometric', pattern: /\bbiometric\b/i },
+  { label: 'deepfake', pattern: /\bdeepfake\b/i },
+  { label: 'nudifying tools', pattern: /\bnudify(ing)?\b/i },
+  { label: 'data scraping', pattern: /\bdata scraping\b/i },
+  { label: 'training data', pattern: /\btraining data\b/i },
+  { label: 'Clearview', pattern: /\bclearview\b/i },
+  { label: 'Metigy', pattern: /\bmetigy\b/i },
+  { label: 'AI marketing', pattern: /\bai marketing\b/i },
 ];
 
-export function passesKeywordFilter(caseData: CaseData): boolean {
+export function getMatchedKeywords(caseData: CaseData): string[] {
   const textToSearch = `${caseData.caseName} ${caseData.summary || ''} ${caseData.fullText || ''}`;
-  return AI_SIGNAL_PATTERNS.some((pattern) => pattern.test(textToSearch));
+  return AI_SIGNAL_PATTERNS
+    .filter(({ pattern }) => pattern.test(textToSearch))
+    .map(({ label }) => label);
+}
+
+export function passesKeywordFilter(caseData: CaseData): boolean {
+  return getMatchedKeywords(caseData).length > 0;
 }
 
 function cleanText(value: unknown) {
@@ -147,6 +162,18 @@ function sourceLevel(sourceType: string | undefined, court: string) {
   return court.includes('Federal') || court.includes('High Court') ? 'Federal' : 'State';
 }
 
+function sourceCategoryFromType(sourceType: string | undefined) {
+  if (sourceType === 'Court guidance') {
+    return 'Guidance';
+  }
+
+  if (sourceType && sourceType !== 'Court record') {
+    return 'Regulator';
+  }
+
+  return 'Court';
+}
+
 class RssLegalSignalSource implements CaseSource {
   name: string;
   private parser = new Parser();
@@ -193,6 +220,7 @@ class RssLegalSignalSource implements CaseSource {
     const publishedDate = dateFromRssEntry(entry);
     const summary = truncate(cleanText(entry.contentSnippet || entry.description || entry.content || '') || null, 700);
     const sourceType = this.config.sourceType || 'Court record';
+    const fetchedAt = new Date();
 
     return {
       caseName: title,
@@ -209,6 +237,10 @@ class RssLegalSignalSource implements CaseSource {
       courtLevel: this.config.courtLevel || sourceLevel(sourceType, this.config.court),
       sourceType,
       sourceConfidence: this.config.sourceConfidence || 'Official court source',
+      sourceAdapterName: this.name,
+      sourceCategory: sourceCategoryFromType(sourceType),
+      extractionMethod: 'RSS',
+      fetchedAt,
     };
   }
 }
@@ -256,13 +288,14 @@ class HtmlLegalSignalSource implements CaseSource {
 
       const parentText = cleanText($(element).closest('article, li, div, section').text()) || title;
       const signalText = `${title} ${parentText}`;
-      if (!AI_SIGNAL_PATTERNS.some((pattern) => pattern.test(signalText))) {
+      if (!AI_SIGNAL_PATTERNS.some(({ pattern }) => pattern.test(signalText))) {
         return;
       }
 
       const publishedDate = extractDate(parentText);
       const summary = truncate(parentText === title ? null : parentText, 700);
       const sourceType = this.config.sourceType || 'Regulator release';
+      const fetchedAt = new Date();
 
       seen.add(url);
       cases.push({
@@ -280,6 +313,10 @@ class HtmlLegalSignalSource implements CaseSource {
         courtLevel: this.config.courtLevel || 'Regulator',
         sourceType,
         sourceConfidence: this.config.sourceConfidence || 'Official regulator publication',
+        sourceAdapterName: this.name,
+        sourceCategory: sourceCategoryFromType(sourceType),
+        extractionMethod: 'HTML',
+        fetchedAt,
       });
     });
 
@@ -416,6 +453,10 @@ export class FederalCourtGuidanceIngestor extends StaticLegalSignalSource {
         courtLevel: 'Federal',
         sourceType: 'Court guidance',
         sourceConfidence: 'Official court source',
+        sourceAdapterName: 'Federal Court AI practice guidance',
+        sourceCategory: 'Guidance',
+        extractionMethod: 'Pinned',
+        fetchedAt: new Date(),
       },
     ]);
   }
@@ -536,6 +577,14 @@ export function convertToCandidateFormat(caseData: CaseData, hints: CandidateHin
     sourcePublisher: caseData.source,
     sourceType,
     sourcePublishedAt: caseData.publishedDate,
+    sourceAdapterName: caseData.sourceAdapterName || null,
+    sourceCategory: caseData.sourceCategory || sourceCategoryFromType(sourceType),
+    extractionMethod: caseData.extractionMethod || 'Manual',
+    matchedKeywords: hints.matchedKeywords ? JSON.stringify(hints.matchedKeywords) : null,
+    llmScreeningStatus: hints.llmScreeningStatus || 'Not screened',
+    llmScreeningReason: hints.llmScreeningReason || null,
+    duplicateCheckResult: hints.duplicateCheckResult || null,
+    fetchedAt: hints.fetchedAt || caseData.fetchedAt || null,
     aiRelevanceStatus: hints.aiRelevanceStatus || 'Unknown',
     materialityLevel: hints.materialityLevel || 'Low',
     summaryShort: hints.summaryShort || (fallbackSummary ? fallbackSummary.substring(0, 200) : null),

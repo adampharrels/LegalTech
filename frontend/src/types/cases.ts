@@ -92,6 +92,14 @@ export type CaseCandidate = {
   sourcePublisher: string | null;
   sourceType: string;
   sourcePublishedAt: string | null;
+  sourceAdapterName: string | null;
+  sourceCategory: string;
+  extractionMethod: string;
+  matchedKeywords: string | null;
+  llmScreeningStatus: string;
+  llmScreeningReason: string | null;
+  duplicateCheckResult: string | null;
+  fetchedAt: string | null;
   aiRelevanceStatus: string;
   materialityLevel: string;
   summaryShort: string | null;
