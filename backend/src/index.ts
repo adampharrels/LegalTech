@@ -21,7 +21,7 @@ const materialityScoreByLevel: Record<string, number> = {
 };
 
 const sourceVerificationStatuses = ['Unverified', 'Verified', 'Needs checking', 'Broken'] as const;
-const sourceConfidenceLevels = ['Official court source', 'Court-adjacent source', 'Secondary source', 'Unknown'] as const;
+const sourceConfidenceLevels = ['Official court source', 'Official regulator publication', 'Court-adjacent source', 'Secondary source', 'Unknown'] as const;
 
 function normaliseMaterialityLevel(value: unknown) {
   const level = String(value || 'Low');

@@ -1,6 +1,6 @@
 /**
  * Case Ingestion CLI Tool
- * Fetches real Australian court cases from official RSS feeds and queues them for triage
+ * Fetches Australian legal signals from official sources and queues them for triage
  * Run: npx ts-node src/ingest-cases.ts
  */
 
@@ -47,12 +47,12 @@ async function main() {
     const cases = await ingestor.fetchAllNewCases();
 
     if (cases.length === 0) {
-      console.log('No new cases found. RSS feeds may be temporarily unavailable.');
-      console.log('   Please try again later or contact the court services directly.');
+      console.log('No new legal signals found. Official sources may be temporarily unavailable.');
+      console.log('   Please try again later or review the source adapters.');
       return;
     }
 
-    console.log(`\nScreening ${cases.length} cases for the triage queue...\n`);
+    console.log(`\nScreening ${cases.length} legal signals for the triage queue...\n`);
 
     let queuedCount = 0;
     let skippedCount = 0;
@@ -125,7 +125,7 @@ async function main() {
     console.log('\n' + '='.repeat(60));
     console.log('Ingestion Complete:');
     console.log(`   New candidates queued: ${queuedCount}`);
-    console.log(`   Cases skipped (already in DB): ${skippedCount}`);
+    console.log(`   Signals skipped: ${skippedCount}`);
     console.log(`   Total processed: ${cases.length}`);
     console.log('='.repeat(60) + '\n');
   } catch (error) {

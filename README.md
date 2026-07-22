@@ -11,7 +11,7 @@ The AI Litigation Navigator addresses the gap in public understanding of AI liti
 - **Searchable Case Database:** Track AI-related litigation across primary jurisdictions (US, Australia, etc.).
 - **Faceted Filtering:** Filter by jurisdiction, issue type, legal area, and procedural status.
 - **Structured Summaries:** Access carefully curated summaries of why specific cases matter.
-- **Automated Ingestion:** Uses `rss-parser` to fetch new cases from official court RSS feeds and queue them for human triage.
+- **Automated Ingestion:** Fetches court judgments, regulator releases, and court guidance from official sources and queues them for human triage.
 - **AI Processing Pipeline:** Integrates Gemini AI to automatically determine relevance, generate structured summaries, and map cases to the taxonomy.
 - **Triage Workflow:** Review ingested case candidates before accepting them into the public case database.
 - **Admin Panel:** Built-in UI to create new case entries and delete existing cases from the database.
@@ -93,7 +93,18 @@ cd backend
 npm run ingest
 ```
 
-The ingestion command fetches official Australian court feeds, applies the keyword and LLM relevance screens, and creates triage candidates instead of publishing cases directly. Review new candidates at `/admin/triage`; accepting a candidate creates the case record and links the primary source.
+The ingestion command fetches official Australian court, regulator, and guidance sources, applies the keyword and LLM relevance screens, and creates triage candidates instead of publishing cases directly. Review new candidates at `/admin/triage`; accepting a candidate creates the case record and links the primary source.
+
+Current ingestion adapters include:
+
+- Federal Court judgments RSS
+- Queensland CaseLaw alerts
+- High Court judgments page
+- ASIC media releases
+- ACCC media releases
+- OAIC media centre
+- eSafety media releases
+- Federal Court generative AI practice guidance
 
 ## Project Structure
 

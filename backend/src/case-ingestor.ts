@@ -1,16 +1,15 @@
 /**
- * Real Case Ingestion System
- * Fetches legitimate cases from official government RSS feeds and court sources
- * No scraping, no mock data - just real judgment data
+ * Legal signal ingestion system.
+ * Fetches official court, regulator, and guidance sources into one triage pipeline.
  */
 
-import Parser from 'rss-parser';
 import axios from 'axios';
+import * as cheerio from 'cheerio';
+import Parser from 'rss-parser';
 
 export interface CaseSource {
   name: string;
-  rssUrl: string;
-  extractCaseData: (entry: any) => Promise<CaseData>;
+  fetchNewCases: () => Promise<CaseData[]>;
 }
 
 export interface CaseData {
@@ -23,6 +22,11 @@ export interface CaseData {
   fullText: string | null;
   publishedDate: Date;
   source: string;
+  jurisdiction?: string;
+  country?: string;
+  courtLevel?: string;
+  sourceType?: string;
+  sourceConfidence?: string;
 }
 
 export interface CandidateHints {
@@ -33,198 +37,414 @@ export interface CandidateHints {
   reviewerNotes?: string;
 }
 
+type RssSourceConfig = {
+  name: string;
+  rssUrl: string;
+  court: string;
+  source: string;
+  jurisdiction?: string;
+  country?: string;
+  courtLevel?: string;
+  sourceType?: string;
+  sourceConfidence?: string;
+  limit?: number;
+};
+
+type HtmlSourceConfig = {
+  name: string;
+  pageUrl: string;
+  court: string;
+  source: string;
+  jurisdiction?: string;
+  country?: string;
+  courtLevel?: string;
+  sourceType?: string;
+  sourceConfidence?: string;
+  limit?: number;
+};
+
+const AI_SIGNAL_PATTERNS = [
+  /\bartificial intelligence\b/i,
+  /\bgenerative ai\b/i,
+  /\bgen ai\b/i,
+  /\bai\b/i,
+  /\balgorithm(ic)?\b/i,
+  /\bmachine learning\b/i,
+  /\blarge language model\b/i,
+  /\bllm\b/i,
+  /\bchatgpt\b/i,
+  /\bopenai\b/i,
+  /\bgemini\b/i,
+  /\bcopilot\b/i,
+  /\bautomated decision/i,
+  /\bautomated system/i,
+  /\bfacial recognition\b/i,
+  /\bbiometric\b/i,
+  /\bdeepfake\b/i,
+  /\bnudify(ing)?\b/i,
+  /\bdata scraping\b/i,
+  /\btraining data\b/i,
+  /\bclearview\b/i,
+  /\bmetigy\b/i,
+  /\bai marketing\b/i,
+];
+
 export function passesKeywordFilter(caseData: CaseData): boolean {
-  const textToSearch = `${caseData.caseName} ${caseData.summary || ''} ${caseData.fullText || ''}`.toLowerCase();
-  const keywords = [
-    'artificial intelligence', 'algorithm', 'machine learning', 'automated decision',
-    'facial recognition', 'llm', 'chatgpt', 'deepfake', 'generative ai', 'openai'
-  ];
-  return keywords.some(keyword => textToSearch.includes(keyword));
+  const textToSearch = `${caseData.caseName} ${caseData.summary || ''} ${caseData.fullText || ''}`;
+  return AI_SIGNAL_PATTERNS.some((pattern) => pattern.test(textToSearch));
 }
 
+function cleanText(value: unknown) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
 
-/**
- * Federal Court of Australia - FCA Judgments RSS
- * Official feed from fedcourt.gov.au
- * Updated daily with new judgments from 1977-present
- */
-export class FederalCourtIngestor {
-  private rssUrl = 'https://www.judgments.fedcourt.gov.au/rss/fca-judgments';
+function truncate(value: string | null, length: number) {
+  if (!value) {
+    return null;
+  }
+
+  return value.length > length ? value.substring(0, length) : value;
+}
+
+function makeAbsoluteUrl(baseUrl: string, href: string | undefined) {
+  if (!href) {
+    return baseUrl;
+  }
+
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+function extractNeutralCitation(title: string, fallbackYear: number) {
+  const citationMatch = title.match(/\[(\d{4})\]\s*([A-Z][A-Z0-9]+)\s*(\d+)/);
+  return citationMatch ? `[${citationMatch[1]}] ${citationMatch[2]} ${citationMatch[3]}` : `[${fallbackYear}]`;
+}
+
+function extractDate(text: string, fallback = new Date()) {
+  const dateMatch = text.match(/\b(\d{1,2}\s+[A-Z][a-z]+\s+\d{4})\b/);
+  if (!dateMatch?.[1]) {
+    return fallback;
+  }
+
+  const parsed = new Date(dateMatch[1]);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function dateFromRssEntry(entry: any) {
+  const rawDate = entry.isoDate || entry.pubDate || entry.published || entry.updated;
+  const parsed = rawDate ? new Date(rawDate) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function sourceLevel(sourceType: string | undefined, court: string) {
+  if (sourceType && sourceType !== 'Court record') {
+    return 'Regulator';
+  }
+
+  return court.includes('Federal') || court.includes('High Court') ? 'Federal' : 'State';
+}
+
+class RssLegalSignalSource implements CaseSource {
+  name: string;
   private parser = new Parser();
+
+  constructor(private config: RssSourceConfig) {
+    this.name = config.name;
+  }
 
   async fetchNewCases(): Promise<CaseData[]> {
     try {
-      console.log('\nFetching Federal Court judgments from RSS...');
-      const feed = await this.parser.parseURL(this.rssUrl);
-      const cases: CaseData[] = [];
-
-      for (const entry of feed.items.slice(0, 10)) {
-        try {
-          const caseData = await this.extractCaseData(entry);
-          cases.push(caseData);
-        } catch (error) {
-          console.error(`   Error processing entry: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      console.log(`   Found ${cases.length} Federal Court cases`);
+      console.log(`\nFetching ${this.name}...`);
+      const feed = await this.parseFeed();
+      const cases = feed.items.slice(0, this.config.limit || 10).map((entry: any) => this.extractCaseData(entry));
+      console.log(`   Found ${cases.length} items`);
       return cases;
     } catch (error) {
-      console.error(
-        `   Federal Court fetch failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
+      console.error(`   ${this.name} fetch failed:`, error instanceof Error ? error.message : String(error));
       return [];
     }
   }
 
-  private async extractCaseData(entry: any): Promise<CaseData> {
-    const title = entry.title || 'Unknown Case';
-    const url = entry.link || '';
-    const pubDate = entry.pubDate ? new Date(entry.pubDate) : new Date();
-    const year = pubDate.getFullYear();
+  private async parseFeed() {
+    try {
+      return await this.parser.parseURL(this.config.rssUrl);
+    } catch (error) {
+      const discoveredFeedUrl = await this.findFeedUrl();
+      if (!discoveredFeedUrl) {
+        throw error;
+      }
 
-    let summary = entry.contentSnippet || entry.description || null;
-    if (summary) {
-      summary = summary.substring(0, 500);
+      return this.parser.parseURL(discoveredFeedUrl);
     }
+  }
 
-    // Extract citation from title (FCA format: Case Name [YYYY] FCA XXX)
-    const citationMatch = title.match(/\[(\d{4})\]\s*(FCA|HCA|NSWSC)\s*(\d+)/);
-    const citation = citationMatch ? `[${citationMatch[1]}] ${citationMatch[2]} ${citationMatch[3]}` : `[${year}] FCA`;
+  private async findFeedUrl() {
+    const response = await axios.get(this.config.rssUrl, { timeout: 15000 });
+    const $ = cheerio.load(response.data);
+    const href = $('a[href*="rss"], a[href*="feed"], link[type="application/rss+xml"]').first().attr('href');
+    return href ? makeAbsoluteUrl(this.config.rssUrl, href) : null;
+  }
+
+  private extractCaseData(entry: any): CaseData {
+    const title = cleanText(entry.title) || 'Unknown Legal Signal';
+    const publishedDate = dateFromRssEntry(entry);
+    const summary = truncate(cleanText(entry.contentSnippet || entry.description || entry.content || '') || null, 700);
+    const sourceType = this.config.sourceType || 'Court record';
 
     return {
       caseName: title,
-      citation,
-      court: 'Federal Court of Australia',
-      url,
-      year,
-      summary,
-      fullText: null, // Can be fetched on demand
-      publishedDate: pubDate,
-      source: 'Federal Court RSS Feed',
-    };
-  }
-}
-
-/**
- * High Court of Australia
- * Official judgments from hcourt.gov.au
- */
-export class HighCourtIngestor {
-  private baseUrl = 'https://www.hcourt.gov.au';
-  private parser = new Parser();
-
-  async fetchNewCases(): Promise<CaseData[]> {
-    try {
-      console.log('\nFetching High Court of Australia judgments...');
-      // Note: High Court has judgments page but may not have RSS
-      // You would need to scrape the page or contact them for API access
-      console.log('   High Court API not yet integrated (contact hcourt.gov.au for access)');
-      return [];
-    } catch (error) {
-      console.error(
-        `   High Court fetch failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
-      return [];
-    }
-  }
-}
-
-/**
- * Queensland CaseLaw
- * Recent decisions with RSS feed support
- */
-export class QueenslandCaseLawIngestor {
-  private rssUrl = 'https://www.sclqld.org.au/collections/caselaw/caselaw-alerts-rss-feeds';
-  private parser = new Parser();
-
-  async fetchNewCases(): Promise<CaseData[]> {
-    try {
-      console.log('\nFetching Queensland CaseLaw decisions...');
-      const feed = await this.parser.parseURL(this.rssUrl);
-      const cases: CaseData[] = [];
-
-      for (const entry of feed.items.slice(0, 10)) {
-        try {
-          const caseData = await this.extractCaseData(entry);
-          cases.push(caseData);
-        } catch (error) {
-          console.error(`   Error processing entry: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      console.log(`   Found ${cases.length} Queensland cases`);
-      return cases;
-    } catch (error) {
-      console.error(
-        `   Queensland CaseLaw fetch failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
-      return [];
-    }
-  }
-
-  private async extractCaseData(entry: any): Promise<CaseData> {
-    const title = entry.title || 'Unknown Case';
-    const url = entry.link || '';
-    const pubDate = entry.pubDate ? new Date(entry.pubDate) : new Date();
-    const year = pubDate.getFullYear();
-
-    let summary = entry.contentSnippet || entry.description || null;
-    if (summary) {
-      summary = summary.substring(0, 500);
-    }
-
-    const citationMatch = title.match(/\[(\d{4})\]\s*(\w+)\s*(\d+)/);
-    const citation = citationMatch ? `[${citationMatch[1]}] ${citationMatch[2]} ${citationMatch[3]}` : `[${year}]`;
-
-    return {
-      caseName: title,
-      citation,
-      court: 'Queensland Courts',
-      url,
-      year,
+      citation: sourceType === 'Court record' ? extractNeutralCitation(title, publishedDate.getFullYear()) : '',
+      court: this.config.court,
+      url: makeAbsoluteUrl(this.config.rssUrl, entry.link),
+      year: publishedDate.getFullYear(),
       summary,
       fullText: null,
-      publishedDate: pubDate,
-      source: 'Queensland CaseLaw',
+      publishedDate,
+      source: this.config.source,
+      jurisdiction: this.config.jurisdiction || 'Australia',
+      country: this.config.country || 'Australia',
+      courtLevel: this.config.courtLevel || sourceLevel(sourceType, this.config.court),
+      sourceType,
+      sourceConfidence: this.config.sourceConfidence || 'Official court source',
     };
   }
 }
 
-/**
- * NSW CaseLaw
- * New South Wales court decisions
- */
-export class NSWCaseLawIngestor {
+class HtmlLegalSignalSource implements CaseSource {
+  name: string;
+
+  constructor(private config: HtmlSourceConfig) {
+    this.name = config.name;
+  }
+
   async fetchNewCases(): Promise<CaseData[]> {
     try {
-      console.log('\nFetching NSW CaseLaw decisions...');
-      // NSW Caselaw doesn't have a public RSS, but has a decisions page
-      // Contact courts.nsw.gov.au for integration options
-      console.log('   NSW CaseLaw API not yet integrated (contact courts.nsw.gov.au for access)');
-      return [];
+      console.log(`\nFetching ${this.name}...`);
+      const response = await axios.get(this.config.pageUrl, { timeout: 15000 });
+      const cases = this.extractItems(response.data);
+      console.log(`   Found ${cases.length} items`);
+      return cases;
     } catch (error) {
-      console.error(
-        `   NSW CaseLaw fetch failed:`,
-        error instanceof Error ? error.message : String(error)
-      );
+      console.error(`   ${this.name} fetch failed:`, error instanceof Error ? error.message : String(error));
       return [];
     }
+  }
+
+  private extractItems(html: string) {
+    const $ = cheerio.load(html);
+    const seen = new Set<string>();
+    const cases: CaseData[] = [];
+
+    $('a[href]').each((_, element) => {
+      if (cases.length >= (this.config.limit || 12)) {
+        return false;
+      }
+
+      const title = cleanText($(element).text());
+      if (title.length < 18 || title.length > 180) {
+        return;
+      }
+
+      const href = $(element).attr('href');
+      const url = makeAbsoluteUrl(this.config.pageUrl, href);
+      if (seen.has(url)) {
+        return;
+      }
+
+      const parentText = cleanText($(element).closest('article, li, div, section').text()) || title;
+      const signalText = `${title} ${parentText}`;
+      if (!AI_SIGNAL_PATTERNS.some((pattern) => pattern.test(signalText))) {
+        return;
+      }
+
+      const publishedDate = extractDate(parentText);
+      const summary = truncate(parentText === title ? null : parentText, 700);
+      const sourceType = this.config.sourceType || 'Regulator release';
+
+      seen.add(url);
+      cases.push({
+        caseName: title,
+        citation: '',
+        court: this.config.court,
+        url,
+        year: publishedDate.getFullYear(),
+        summary,
+        fullText: parentText,
+        publishedDate,
+        source: this.config.source,
+        jurisdiction: this.config.jurisdiction || 'Australia',
+        country: this.config.country || 'Australia',
+        courtLevel: this.config.courtLevel || 'Regulator',
+        sourceType,
+        sourceConfidence: this.config.sourceConfidence || 'Official regulator publication',
+      });
+    });
+
+    return cases;
+  }
+}
+
+class StaticLegalSignalSource implements CaseSource {
+  name: string;
+
+  constructor(name: string, private cases: CaseData[]) {
+    this.name = name;
+  }
+
+  async fetchNewCases(): Promise<CaseData[]> {
+    console.log(`\nLoading ${this.name}...`);
+    console.log(`   Found ${this.cases.length} pinned items`);
+    return this.cases;
+  }
+}
+
+export class FederalCourtIngestor extends RssLegalSignalSource {
+  constructor() {
+    super({
+      name: 'Federal Court judgments RSS',
+      rssUrl: 'https://www.judgments.fedcourt.gov.au/rss/fca-judgments',
+      court: 'Federal Court of Australia',
+      source: 'Federal Court RSS Feed',
+      courtLevel: 'Federal',
+      sourceType: 'Court record',
+    });
+  }
+}
+
+export class QueenslandCaseLawIngestor extends RssLegalSignalSource {
+  constructor() {
+    super({
+      name: 'Queensland CaseLaw alerts',
+      rssUrl: 'https://www.sclqld.org.au/collections/caselaw/caselaw-alerts-rss-feeds',
+      court: 'Queensland Courts',
+      source: 'Queensland CaseLaw',
+      courtLevel: 'State',
+      sourceType: 'Court record',
+    });
+  }
+}
+
+export class HighCourtIngestor extends HtmlLegalSignalSource {
+  constructor() {
+    super({
+      name: 'High Court judgments',
+      pageUrl: 'https://www.hcourt.gov.au/cases-and-judgments/judgments',
+      court: 'High Court of Australia',
+      source: 'High Court of Australia judgments page',
+      courtLevel: 'Federal',
+      sourceType: 'Court record',
+      sourceConfidence: 'Official court source',
+      limit: 8,
+    });
+  }
+}
+
+export class ASICMediaReleaseIngestor extends HtmlLegalSignalSource {
+  constructor() {
+    super({
+      name: 'ASIC media releases',
+      pageUrl: 'https://www.asic.gov.au/newsroom/media-releases/',
+      court: 'Australian Securities and Investments Commission',
+      source: 'ASIC media releases',
+      sourceType: 'Regulator release',
+      sourceConfidence: 'Official regulator publication',
+      limit: 12,
+    });
+  }
+}
+
+export class ACCCMediaReleaseIngestor extends HtmlLegalSignalSource {
+  constructor() {
+    super({
+      name: 'ACCC media releases',
+      pageUrl: 'https://www.accc.gov.au/about-us/media/media-releases?search=artificial%20intelligence&sort_by=search_api_relevance',
+      court: 'Australian Competition and Consumer Commission',
+      source: 'ACCC media releases',
+      sourceType: 'Regulator release',
+      sourceConfidence: 'Official regulator publication',
+      limit: 12,
+    });
+  }
+}
+
+export class OAICMediaCentreIngestor extends HtmlLegalSignalSource {
+  constructor() {
+    super({
+      name: 'OAIC media centre',
+      pageUrl: 'https://www.oaic.gov.au/news/media-centre',
+      court: 'Office of the Australian Information Commissioner',
+      source: 'OAIC media centre',
+      sourceType: 'Regulator decision',
+      sourceConfidence: 'Official regulator publication',
+      limit: 12,
+    });
+  }
+}
+
+export class ESafetyMediaReleaseIngestor extends HtmlLegalSignalSource {
+  constructor() {
+    super({
+      name: 'eSafety media releases',
+      pageUrl: 'https://www.esafety.gov.au/newsroom/media-releases',
+      court: 'eSafety Commissioner',
+      source: 'eSafety media releases',
+      sourceType: 'Regulator release',
+      sourceConfidence: 'Official regulator publication',
+      limit: 12,
+    });
+  }
+}
+
+export class FederalCourtGuidanceIngestor extends StaticLegalSignalSource {
+  constructor() {
+    super('Federal Court AI practice guidance', [
+      {
+        caseName: 'Federal Court of Australia - Use of Generative Artificial Intelligence Practice Note',
+        citation: '',
+        court: 'Federal Court of Australia',
+        url: 'https://www.fedcourt.gov.au/law-and-practice/practice-documents/practice-notes/gpn-ai',
+        year: 2026,
+        summary: 'General Practice Note on the use of generative artificial intelligence in Federal Court proceedings.',
+        fullText: 'The practice note addresses disclosure, responsibilities, and risks when generative artificial intelligence is used in litigation.',
+        publishedDate: new Date('2026-04-16T00:00:00.000Z'),
+        source: 'Federal Court practice notes',
+        jurisdiction: 'Australia',
+        country: 'Australia',
+        courtLevel: 'Federal',
+        sourceType: 'Court guidance',
+        sourceConfidence: 'Official court source',
+      },
+    ]);
   }
 }
 
 /**
- * Coordinate all ingestion sources
+ * Coordinate all ingestion sources.
  */
 export class CaseIngestor {
-  private sources = [new FederalCourtIngestor(), new QueenslandCaseLawIngestor()];
+  private sources: CaseSource[];
+  private sourceDelayMs: number;
+
+  constructor(sources?: CaseSource[], sourceDelayMs = 1000) {
+    this.sources = sources || [
+      new FederalCourtIngestor(),
+      new QueenslandCaseLawIngestor(),
+      new HighCourtIngestor(),
+      new ASICMediaReleaseIngestor(),
+      new ACCCMediaReleaseIngestor(),
+      new OAICMediaCentreIngestor(),
+      new ESafetyMediaReleaseIngestor(),
+      new FederalCourtGuidanceIngestor(),
+    ];
+    this.sourceDelayMs = sourceDelayMs;
+  }
 
   async fetchAllNewCases(): Promise<CaseData[]> {
-    console.log('\nStarting Case Ingestion System');
-    console.log('Querying official Australian court sources...\n');
+    console.log('\nStarting Legal Signal Ingestion System');
+    console.log('Querying official court, regulator, and guidance sources...\n');
 
     const allCases: CaseData[] = [];
     const seen = new Set<string>();
@@ -240,19 +460,17 @@ export class CaseIngestor {
           }
         }
       } catch (error) {
-        console.error(
-          `   Source error:`,
-          error instanceof Error ? error.message : String(error)
-        );
+        console.error(`   Source error:`, error instanceof Error ? error.message : String(error));
       }
 
-      // Rate limiting between sources
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (this.sourceDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.sourceDelayMs));
+      }
     }
 
     console.log('\n' + '='.repeat(60));
     console.log('Ingestion Summary:');
-    console.log(`   Total cases found: ${allCases.length}`);
+    console.log(`   Total legal signals found: ${allCases.length}`);
     console.log(`   Sources queried: ${this.sources.length}`);
     console.log('='.repeat(60) + '\n');
 
@@ -261,7 +479,7 @@ export class CaseIngestor {
 }
 
 /**
- * Convert case data to database format
+ * Convert case data to database format.
  */
 export function convertToDBFormat(caseData: CaseData) {
   const slug = caseData.caseName
@@ -270,14 +488,16 @@ export function convertToDBFormat(caseData: CaseData) {
     .replace(/^-+|-+$/g, '')
     .substring(0, 100);
 
+  const sourceType = caseData.sourceType || 'Court record';
+
   return {
     slug,
     caseName: caseData.caseName,
     neutralCitation: caseData.citation,
-    jurisdiction: 'Australia',
-    country: 'Australia',
+    jurisdiction: caseData.jurisdiction || 'Australia',
+    country: caseData.country || 'Australia',
     courtName: caseData.court,
-    courtLevel: caseData.court.includes('Federal') ? 'Federal' : 'State',
+    courtLevel: caseData.courtLevel || sourceLevel(sourceType, caseData.court),
     statusPublic: 'Published',
     statusInternal: 'Active',
     caseLifecycleStatus: 'Published',
@@ -287,33 +507,34 @@ export function convertToDBFormat(caseData: CaseData) {
     materialityScore: '7',
     materialityScoreValue: 7,
     filingDate: caseData.publishedDate,
-    summaryShort: caseData.summary ? caseData.summary.substring(0, 200) : 'Australian court judgment',
-    summaryLong: caseData.summary || caseData.fullText || 'Australian court judgment',
-    whyItMatters: 'Recent judgment from official Australian court sources',
-    isAiRelated: true, // Filter for AI-related cases in processing layer
+    summaryShort: caseData.summary ? caseData.summary.substring(0, 200) : 'Australian legal signal',
+    summaryLong: caseData.summary || caseData.fullText || 'Australian legal signal',
+    whyItMatters: 'Recent legal signal from official Australian sources',
+    isAiRelated: true,
   };
 }
 
 /**
- * Convert fetched judgment data into a triage candidate rather than a published case.
+ * Convert fetched legal signal data into a triage candidate rather than a published case.
  */
 export function convertToCandidateFormat(caseData: CaseData, hints: CandidateHints = {}) {
   const fallbackSummary = caseData.summary || caseData.fullText || null;
+  const sourceType = caseData.sourceType || 'Court record';
 
   return {
     caseName: caseData.caseName,
     neutralCitation: caseData.citation || null,
     docketNumber: null,
-    jurisdiction: 'Australia',
-    country: 'Australia',
+    jurisdiction: caseData.jurisdiction || 'Australia',
+    country: caseData.country || 'Australia',
     courtName: caseData.court,
-    courtLevel: caseData.court.includes('Federal') ? 'Federal' : 'State',
+    courtLevel: caseData.courtLevel || sourceLevel(sourceType, caseData.court),
     candidateStatus: 'Needs human triage',
-    sourceConfidence: 'Official court source',
+    sourceConfidence: caseData.sourceConfidence || 'Official court source',
     sourceTitle: caseData.caseName,
     sourceUrl: caseData.url || null,
     sourcePublisher: caseData.source,
-    sourceType: 'Court record',
+    sourceType,
     sourcePublishedAt: caseData.publishedDate,
     aiRelevanceStatus: hints.aiRelevanceStatus || 'Unknown',
     materialityLevel: hints.materialityLevel || 'Low',

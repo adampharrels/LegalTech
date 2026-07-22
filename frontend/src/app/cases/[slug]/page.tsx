@@ -365,6 +365,7 @@ export default async function CaseDetailPage({
                           <label style={sourceLabelStyle}>Confidence</label>
                           <select name="sourceConfidence" defaultValue={source.sourceConfidence} style={sourceInputStyle}>
                             <option value="Official court source" style={{ color: '#000' }}>Official court source</option>
+                            <option value="Official regulator publication" style={{ color: '#000' }}>Official regulator publication</option>
                             <option value="Court-adjacent source" style={{ color: '#000' }}>Court-adjacent source</option>
                             <option value="Secondary source" style={{ color: '#000' }}>Secondary source</option>
                             <option value="Unknown" style={{ color: '#000' }}>Unknown</option>

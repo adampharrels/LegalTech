@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { convertToCandidateFormat, convertToDBFormat, passesKeywordFilter, type CaseData } from './case-ingestor';
+import { CaseIngestor, convertToCandidateFormat, convertToDBFormat, passesKeywordFilter, type CaseData, type CaseSource } from './case-ingestor';
 
 function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   return {
@@ -21,6 +21,10 @@ test('passesKeywordFilter detects AI-related terms across case text', () => {
   assert.equal(passesKeywordFilter(makeCaseData()), true);
   assert.equal(
     passesKeywordFilter(makeCaseData({ summary: null, fullText: 'The pleadings refer to ChatGPT outputs.' })),
+    true
+  );
+  assert.equal(
+    passesKeywordFilter(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })),
     true
   );
 });
@@ -80,4 +84,45 @@ test('convertToCandidateFormat maps ingested cases into triage candidates', () =
   assert.equal(converted.materialityLevel, 'High');
   assert.equal(converted.summaryShort, 'LLM summary');
   assert.equal(converted.reviewerNotes, 'LLM screened.');
+});
+
+test('convertToCandidateFormat preserves regulator source metadata', () => {
+  const converted = convertToCandidateFormat(
+    makeCaseData({
+      caseName: 'Regulator publishes generative AI compliance action',
+      citation: '',
+      court: 'Australian Securities and Investments Commission',
+      source: 'ASIC media releases',
+      sourceType: 'Regulator release',
+      sourceConfidence: 'Official regulator publication',
+      courtLevel: 'Regulator',
+    })
+  );
+
+  assert.equal(converted.neutralCitation, null);
+  assert.equal(converted.courtName, 'Australian Securities and Investments Commission');
+  assert.equal(converted.courtLevel, 'Regulator');
+  assert.equal(converted.sourceType, 'Regulator release');
+  assert.equal(converted.sourceConfidence, 'Official regulator publication');
+});
+
+test('CaseIngestor coordinates injected sources and deduplicates by case name and URL', async () => {
+  const sourceCase = makeCaseData();
+  const sources: CaseSource[] = [
+    {
+      name: 'Source A',
+      fetchNewCases: async () => [sourceCase],
+    },
+    {
+      name: 'Source B',
+      fetchNewCases: async () => [sourceCase, makeCaseData({ caseName: 'Different AI matter', url: 'https://example.test/other' })],
+    },
+  ];
+
+  const ingestor = new CaseIngestor(sources, 0);
+  const cases = await ingestor.fetchAllNewCases();
+
+  assert.equal(cases.length, 2);
+  assert.equal(cases[0]?.caseName, sourceCase.caseName);
+  assert.equal(cases[1]?.caseName, 'Different AI matter');
 });
