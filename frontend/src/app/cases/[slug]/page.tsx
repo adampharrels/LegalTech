@@ -1,7 +1,8 @@
 import { getCaseBySlug } from '@/actions/cases';
+import { updateSourceVerification } from '@/actions/admin';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, MapPin, Scale, BookOpen, AlertTriangle, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Scale, BookOpen, AlertTriangle, ExternalLink, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
 import PrintButton from './PrintButton';
 
 export default async function CaseDetailPage({
@@ -34,6 +35,31 @@ export default async function CaseDetailPage({
   const aiSummary = latestAnalysis?.summaryShort || caseData.summaryShort;
   const aiDetailedSummary = latestAnalysis?.summaryLong || caseData.summaryLong;
   const aiImportanceNote = latestAnalysis?.whyItMatters || caseData.whyItMatters;
+  const verificationBadgeStyle = (status: string) => ({
+    padding: '0.125rem 0.375rem',
+    borderRadius: 'var(--radius-sm)',
+    background: status === 'Verified' ? 'rgba(34, 197, 94, 0.12)' : status === 'Broken' ? 'rgba(239, 68, 68, 0.12)' : status === 'Needs checking' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.08)',
+    color: status === 'Verified' ? '#22c55e' : status === 'Broken' ? '#ef4444' : status === 'Needs checking' ? '#f59e0b' : 'var(--text-secondary)',
+    border: status === 'Verified' ? '1px solid rgba(34, 197, 94, 0.2)' : status === 'Broken' ? '1px solid rgba(239, 68, 68, 0.2)' : status === 'Needs checking' ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid var(--border-color)',
+    fontSize: '0.6875rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.05em',
+  });
+  const sourceInputStyle = {
+    width: '100%',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0.4rem 0.5rem',
+    fontSize: '0.75rem',
+    color: 'var(--text-primary)',
+  };
+  const sourceLabelStyle = {
+    display: 'block',
+    color: 'var(--text-secondary)',
+    fontSize: '0.6875rem',
+    marginBottom: '0.25rem',
+  };
 
   return (
     <div className="flex-col gap-8 pb-12" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
@@ -283,27 +309,78 @@ export default async function CaseDetailPage({
           </section>
 
           {caseData.sources && caseData.sources.length > 0 && (
-            <section className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
+            <section id="sources" className="glass-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <h3 style={{ fontWeight: 600, fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                 <ExternalLink size={16} />
                 Sources
               </h3>
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
                 {caseData.sources.map((source) => (
-                  <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer" className="hover-text-accent" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span>{source.title}</span>
-                      {source.isPrimary && (
-                        <span style={{ padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Primary
+                  <div key={source.id} style={{ display: 'grid', gap: '0.75rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <a href={source.url} target="_blank" rel="noopener noreferrer" className="hover-text-accent" style={{ display: 'block', fontSize: '0.875rem', textDecoration: 'none', color: 'inherit' }}>
+                      <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span>{source.title}</span>
+                        {source.isPrimary && (
+                          <span style={{ padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Primary
+                          </span>
+                        )}
+                        <span style={verificationBadgeStyle(source.verificationStatus)}>
+                          {source.verificationStatus}
                         </span>
+                      </div>
+                      <div className="text-muted flex justify-between mt-1" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem', gap: '0.75rem' }}>
+                        <span>{source.publisher || source.sourceType}</span>
+                        {source.publishedAt && <span>{new Date(source.publishedAt).toLocaleDateString()}</span>}
+                      </div>
+                    </a>
+
+                    <div className="text-muted" style={{ display: 'grid', gap: '0.35rem', fontSize: '0.75rem' }}>
+                      <span>Confidence: {source.sourceConfidence}</span>
+                      {source.lastCheckedAt && <span>Last checked: {new Date(source.lastCheckedAt).toLocaleString()}</span>}
+                      {source.verifiedBy && <span>Verified by: {source.verifiedBy}</span>}
+                      {source.archivedUrl && (
+                        <a href={source.archivedUrl} target="_blank" rel="noopener noreferrer" className="hover-text-accent" style={{ color: 'var(--accent-primary)' }}>
+                          Archived copy
+                        </a>
                       )}
+                      {source.retrievalNotes && <span>{source.retrievalNotes}</span>}
                     </div>
-                    <div className="text-muted flex justify-between mt-1" style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
-                      <span>{source.publisher || source.sourceType}</span>
-                      {source.publishedAt && <span>{new Date(source.publishedAt).toLocaleDateString()}</span>}
-                    </div>
-                  </a>
+
+                    <form action={updateSourceVerification} style={{ display: 'grid', gap: '0.5rem' }}>
+                      <input type="hidden" name="sourceId" value={source.id} />
+                      <input type="hidden" name="caseSlug" value={caseData.slug} />
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <div>
+                          <label style={sourceLabelStyle}>Verification</label>
+                          <select name="verificationStatus" defaultValue={source.verificationStatus} style={sourceInputStyle}>
+                            <option value="Unverified" style={{ color: '#000' }}>Unverified</option>
+                            <option value="Verified" style={{ color: '#000' }}>Verified</option>
+                            <option value="Needs checking" style={{ color: '#000' }}>Needs checking</option>
+                            <option value="Broken" style={{ color: '#000' }}>Broken</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={sourceLabelStyle}>Confidence</label>
+                          <select name="sourceConfidence" defaultValue={source.sourceConfidence} style={sourceInputStyle}>
+                            <option value="Official court source" style={{ color: '#000' }}>Official court source</option>
+                            <option value="Court-adjacent source" style={{ color: '#000' }}>Court-adjacent source</option>
+                            <option value="Secondary source" style={{ color: '#000' }}>Secondary source</option>
+                            <option value="Unknown" style={{ color: '#000' }}>Unknown</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <input name="verifiedBy" defaultValue={source.verifiedBy || ''} style={sourceInputStyle} placeholder="Reviewer name" />
+                      <input name="archivedUrl" type="url" defaultValue={source.archivedUrl || ''} style={sourceInputStyle} placeholder="Archived URL" />
+                      <textarea name="retrievalNotes" rows={2} defaultValue={source.retrievalNotes || ''} style={{ ...sourceInputStyle, resize: 'vertical' }} placeholder="Retrieval notes" />
+                      <button type="submit" className="btn-secondary" style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '0.35rem', padding: '0.45rem 0.65rem', fontSize: '0.75rem' }}>
+                        <CheckCircle2 size={14} />
+                        Save Verification
+                      </button>
+                    </form>
+                  </div>
                 ))}
               </div>
             </section>

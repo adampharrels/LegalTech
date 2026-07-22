@@ -66,6 +66,12 @@ export type CaseSource = {
   publishedAt: string | null;
   isPrimary: boolean;
   notes: string | null;
+  sourceConfidence: string;
+  verificationStatus: string;
+  lastCheckedAt: string | null;
+  verifiedBy: string | null;
+  archivedUrl: string | null;
+  retrievalNotes: string | null;
 };
 
 export type CaseCandidate = {

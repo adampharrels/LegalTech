@@ -56,6 +56,34 @@ export async function reviewLlmAnalysis(formData: FormData) {
   redirect(`/cases/${caseSlug}#llm-analysis`);
 }
 
+export async function updateSourceVerification(formData: FormData) {
+  const sourceId = String(formData.get('sourceId') || '');
+  const caseSlug = String(formData.get('caseSlug') || '');
+  const payload = {
+    verificationStatus: formData.get('verificationStatus'),
+    sourceConfidence: formData.get('sourceConfidence'),
+    verifiedBy: formData.get('verifiedBy'),
+    archivedUrl: formData.get('archivedUrl'),
+    retrievalNotes: formData.get('retrievalNotes'),
+  };
+
+  const response = await fetch(`${API_URL}/sources/${sourceId}/verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update source verification');
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath(`/cases/${caseSlug}`);
+  revalidatePath('/dashboard');
+  redirect(`/cases/${caseSlug}#sources`);
+}
+
 export async function getCandidates(status?: string): Promise<CaseCandidate[]> {
   const params = new URLSearchParams();
   if (status) params.append('status', status);
@@ -170,6 +198,7 @@ export async function createBasicCase(formData: FormData) {
     sourceType: formData.get('sourceType'),
     sourcePublisher: formData.get('sourcePublisher'),
     sourcePublishedAt: formData.get('sourcePublishedAt'),
+    sourceConfidence: formData.get('sourceConfidence'),
   };
 
   const response = await fetch(`${API_URL}/cases`, {

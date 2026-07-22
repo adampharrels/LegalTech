@@ -142,6 +142,15 @@ export default async function AdminPage() {
                 <label style={labelStyle}>Published Date</label>
                 <input name="sourcePublishedAt" type="date" style={inputStyle} />
               </div>
+              <div>
+                <label style={labelStyle}>Source Confidence</label>
+                <select name="sourceConfidence" style={inputStyle}>
+                  <option value="Official court source" style={{ color: '#000' }}>Official court source</option>
+                  <option value="Court-adjacent source" style={{ color: '#000' }}>Court-adjacent source</option>
+                  <option value="Secondary source" style={{ color: '#000' }}>Secondary source</option>
+                  <option value="Unknown" style={{ color: '#000' }}>Unknown</option>
+                </select>
+              </div>
             </div>
 
             <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '0.5rem' }}>

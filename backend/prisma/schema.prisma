@@ -130,16 +130,24 @@ model Event {
 }
 
 model Source {
-  id          String    @id @default(uuid())
-  caseId      String
-  sourceType  String
-  title       String
-  url         String
-  publisher   String?
-  publishedAt DateTime?
-  isPrimary   Boolean   @default(false)
-  notes       String?
-  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id                     String    @id @default(uuid())
+  caseId                 String
+  sourceType             String
+  title                  String
+  url                    String
+  publisher              String?
+  publishedAt            DateTime?
+  isPrimary              Boolean   @default(false)
+  notes                  String?
+  sourceConfidence       String    @default("Unknown")
+  verificationStatus     String    @default("Unverified")
+  lastCheckedAt          DateTime?
+  verifiedBy             String?
+  archivedUrl            String?
+  retrievalNotes         String?
+  case                   Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus, lastCheckedAt])
 }
 
 model LlmAnalysis {

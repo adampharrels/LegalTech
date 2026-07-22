@@ -20,6 +20,9 @@ const materialityScoreByLevel: Record<string, number> = {
   High: 8,
 };
 
+const sourceVerificationStatuses = ['Unverified', 'Verified', 'Needs checking', 'Broken'] as const;
+const sourceConfidenceLevels = ['Official court source', 'Court-adjacent source', 'Secondary source', 'Unknown'] as const;
+
 function normaliseMaterialityLevel(value: unknown) {
   const level = String(value || 'Low');
   return ['Low', 'Medium', 'High'].includes(level) ? level : 'Low';
@@ -28,6 +31,16 @@ function normaliseMaterialityLevel(value: unknown) {
 function scoreFromMateriality(value: unknown) {
   const level = normaliseMaterialityLevel(value);
   return materialityScoreByLevel[level] ?? 2;
+}
+
+function normaliseSourceVerificationStatus(value: unknown) {
+  const status = String(value || 'Unverified');
+  return sourceVerificationStatuses.includes(status as typeof sourceVerificationStatuses[number]) ? status : 'Unverified';
+}
+
+function normaliseSourceConfidence(value: unknown) {
+  const confidence = String(value || 'Unknown');
+  return sourceConfidenceLevels.includes(confidence as typeof sourceConfidenceLevels[number]) ? confidence : 'Unknown';
 }
 
 function slugifyCaseName(caseName: string) {
@@ -229,6 +242,7 @@ app.post('/api/candidates/:id/accept', async (req: Request, res: Response) => {
             publisher: candidate.sourcePublisher,
             publishedAt: candidate.sourcePublishedAt,
             isPrimary: candidate.sourceConfidence === 'Official court source',
+            sourceConfidence: normaliseSourceConfidence(candidate.sourceConfidence),
             notes: candidate.reviewerNotes,
           },
           },
@@ -447,7 +461,8 @@ app.post('/api/cases', async (req: Request, res: Response) => {
       sourceUrl,
       sourceType,
       sourcePublisher,
-      sourcePublishedAt
+      sourcePublishedAt,
+      sourceConfidence
     } = req.body;
 
     if (!caseName) return res.status(400).json({ error: 'caseName required' });
@@ -490,6 +505,7 @@ app.post('/api/cases', async (req: Request, res: Response) => {
             publisher: sourcePublisher || null,
             publishedAt: sourcePublishedAt ? new Date(sourcePublishedAt) : null,
             isPrimary: true,
+            sourceConfidence: normaliseSourceConfidence(sourceConfidence),
           }
           }
         }
@@ -669,6 +685,47 @@ app.post('/api/llm-analyses/:id/review', async (req: Request, res: Response) => 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to review LLM analysis' });
+  }
+});
+
+// === VERIFY SOURCE ===
+app.post('/api/sources/:id/verification', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const {
+      verificationStatus,
+      sourceConfidence,
+      verifiedBy,
+      archivedUrl,
+      retrievalNotes,
+    } = req.body;
+
+    const source = await prisma.source.findUnique({
+      where: { id },
+      include: { case: true },
+    });
+
+    if (!source) {
+      return res.status(404).json({ error: 'Source not found' });
+    }
+
+    const nextVerificationStatus = normaliseSourceVerificationStatus(verificationStatus);
+    const updatedSource = await prisma.source.update({
+      where: { id },
+      data: {
+        verificationStatus: nextVerificationStatus,
+        sourceConfidence: normaliseSourceConfidence(sourceConfidence),
+        verifiedBy: verifiedBy ? String(verifiedBy) : null,
+        archivedUrl: archivedUrl ? String(archivedUrl) : null,
+        retrievalNotes: retrievalNotes ? String(retrievalNotes) : null,
+        lastCheckedAt: new Date(),
+      },
+    });
+
+    res.json({ source: updatedSource, case: source.case });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update source verification' });
   }
 });
 
