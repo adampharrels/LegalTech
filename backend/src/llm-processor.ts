@@ -8,6 +8,19 @@ const ai = new GoogleGenAI(process.env.GEMINI_API_KEY ? { apiKey: process.env.GE
 export const LLM_MODEL_NAME = 'gemini-2.5-flash';
 export const LLM_PROMPT_VERSION = 'case-analysis-v1';
 export const LLM_RELEVANCE_PROMPT_VERSION = 'case-relevance-v1';
+export const AI_ROLE_VALUES = [
+  'GENERATIVE_AI',
+  'AUTOMATED_DECISION_MAKING',
+  'FACIAL_RECOGNITION',
+  'AI_GENERATED_EVIDENCE',
+  'DEEPFAKE',
+  'COPYRIGHT_TRAINING_DATA',
+  'ALGORITHMIC_DISCRIMINATION',
+  'OTHER_AI',
+  'NOT_AI',
+] as const;
+
+export type AIRole = typeof AI_ROLE_VALUES[number];
 
 export interface LLMAnalysisResult {
   isAiRelated: boolean;
@@ -22,7 +35,33 @@ export interface LLMRelevanceResult {
   aiRelevant: boolean;
   confidence: number;
   reason: string;
-  aiRole: string;
+  aiRole: AIRole;
+}
+
+export function normaliseAiRole(value: unknown, isAiRelevant: boolean): AIRole {
+  if (!isAiRelevant) {
+    return 'NOT_AI';
+  }
+
+  const normalised = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+
+  if ((AI_ROLE_VALUES as readonly string[]).includes(normalised) && normalised !== 'NOT_AI') {
+    return normalised as AIRole;
+  }
+
+  return 'OTHER_AI';
+}
+
+function normaliseLlmBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().toLowerCase() === 'true';
+  }
+
+  return Boolean(value);
 }
 
 const relevanceSchema: Schema = {
@@ -129,11 +168,13 @@ Full Text: ${caseData.fullText || 'N/A'}
     }
 
     const parsed = JSON.parse(response.text) as LLMRelevanceResult;
+    const aiRelevant = normaliseLlmBoolean(parsed.aiRelevant);
+
     return {
-      aiRelevant: Boolean(parsed.aiRelevant),
+      aiRelevant,
       confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0)),
       reason: parsed.reason || 'No relevance reason provided.',
-      aiRole: parsed.aiRole || (parsed.aiRelevant ? 'OTHER_AI' : 'NOT_AI'),
+      aiRole: normaliseAiRole(parsed.aiRole, aiRelevant),
     };
   } catch (error) {
     console.error('LLM relevance classification failed:', error instanceof Error ? error.message : String(error));

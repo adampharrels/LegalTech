@@ -9,6 +9,7 @@ import { LLM_MODEL_NAME, LLM_RELEVANCE_PROMPT_VERSION, classifyCaseRelevanceWith
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+type ScreeningMethod = 'llm' | 'heuristic';
 
 function hasSpecificCitation(citation: string | null | undefined) {
   return Boolean(citation && /\[\d{4}\]\s+[A-Z]+\s+\d+/i.test(citation));
@@ -41,12 +42,20 @@ function heuristicRelevance(caseData: CaseData, matchedKeywords: string[]): LLMR
   };
 }
 
-function buildReviewerNotes(caseData: CaseData, relevance: LLMRelevanceResult, matchedKeywords: string[]) {
+function buildReviewerNotes(
+  caseData: CaseData,
+  relevance: LLMRelevanceResult,
+  matchedKeywords: string[],
+  screeningMethod: ScreeningMethod
+) {
   const keywordNote = `Matched keywords: ${matchedKeywords.length ? matchedKeywords.join(', ') : 'none'}.`;
+  const screeningNote = screeningMethod === 'llm'
+    ? `Relevance screened by ${LLM_MODEL_NAME} (${LLM_RELEVANCE_PROMPT_VERSION}).`
+    : 'Relevance screened by heuristic fallback; LLM classification was unavailable.';
 
   return [
     keywordNote,
-    `Relevance screened by ${LLM_MODEL_NAME} (${LLM_RELEVANCE_PROMPT_VERSION}).`,
+    screeningNote,
     `AI relevant: ${relevance.aiRelevant ? 'yes' : 'no'} (${Math.round(relevance.confidence * 100)}%).`,
     `AI role: ${relevance.aiRole}.`,
     `Reason: ${relevance.reason || caseData.summary || 'Not provided.'}`,
@@ -74,13 +83,6 @@ async function main() {
       try {
         const matchedKeywords = getMatchedKeywords(caseData);
 
-        console.log(`   Classifying AI relevance: ${caseData.caseName}`);
-        const llmRelevance = await classifyCaseRelevanceWithLLM(caseData);
-        const relevance = llmRelevance || heuristicRelevance(caseData, matchedKeywords);
-        const classifierStatus = llmRelevance
-          ? (relevance.aiRelevant ? 'Relevant' : 'Not relevant')
-          : (matchedKeywords.length > 0 ? 'Heuristic review needed' : 'Heuristic archived');
-
         const existingCaseFilters = duplicateFiltersForCase(caseData);
         const existingCase = existingCaseFilters.length > 0
           ? await prisma.case.findFirst({ where: { OR: existingCaseFilters } })
@@ -96,17 +98,24 @@ async function main() {
         const existingCandidate = existingCandidateFilters.length > 0
           ? await prisma.caseCandidate.findFirst({
             where: {
-              candidateStatus: { notIn: ['Rejected', 'Archived'] },
               OR: existingCandidateFilters,
             },
           })
           : null;
 
         if (existingCandidate) {
-          console.log(`   Already queued for triage: ${caseData.caseName}`);
+          console.log(`   Already seen as a candidate (${existingCandidate.candidateStatus}): ${caseData.caseName}`);
           skippedCount++;
           continue;
         }
+
+        console.log(`   Classifying AI relevance: ${caseData.caseName}`);
+        const llmRelevance = await classifyCaseRelevanceWithLLM(caseData);
+        const relevance = llmRelevance || heuristicRelevance(caseData, matchedKeywords);
+        const screeningMethod: ScreeningMethod = llmRelevance ? 'llm' : 'heuristic';
+        const classifierStatus = llmRelevance
+          ? (relevance.aiRelevant ? 'Relevant' : 'Not relevant')
+          : (matchedKeywords.length > 0 ? 'Heuristic review needed' : 'Heuristic archived');
 
         const candidateHints = {
           aiRelevanceStatus: relevance.aiRelevant ? 'Relevant' : 'Not relevant',
@@ -118,9 +127,9 @@ async function main() {
           relevanceScore: relevance.confidence,
           relevanceReason: relevance.reason,
           aiRole: relevance.aiRole,
-          duplicateCheckResult: 'No accepted case or open candidate matched by citation or source URL.',
+          duplicateCheckResult: 'No accepted case or prior candidate matched by citation or source URL.',
           fetchedAt: caseData.fetchedAt || new Date(),
-          reviewerNotes: buildReviewerNotes(caseData, relevance, matchedKeywords),
+          reviewerNotes: buildReviewerNotes(caseData, relevance, matchedKeywords, screeningMethod),
         };
 
         const candidateData = convertToCandidateFormat(caseData, candidateHints);
