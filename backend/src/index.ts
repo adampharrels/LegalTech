@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
-import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM } from './llm-processor';
+import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, normaliseAiRole } from './llm-processor';
 import type { CaseData } from './case-ingestor';
 
 dotenv.config();
@@ -53,6 +53,48 @@ function normaliseMatchedKeywords(value: unknown) {
   }
 
   return String(value);
+}
+
+function normaliseOptionalBoolean(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalised = value.trim().toLowerCase();
+
+    if (normalised === 'true') {
+      return true;
+    }
+
+    if (normalised === 'false') {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function normaliseOptionalScore(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+
+  const score = Number(value);
+
+  if (!Number.isFinite(score) || score < 0 || score > 1) {
+    return null;
+  }
+
+  return score;
 }
 
 function slugifyCaseName(caseName: string) {
@@ -125,6 +167,10 @@ app.post('/api/candidates', async (req: Request, res: Response) => {
       matchedKeywords,
       llmScreeningStatus,
       llmScreeningReason,
+      aiRelevant,
+      relevanceScore,
+      relevanceReason,
+      aiRole,
       duplicateCheckResult,
       fetchedAt,
       aiRelevanceStatus,
@@ -140,6 +186,18 @@ app.post('/api/candidates', async (req: Request, res: Response) => {
 
     if (!sourceTitle && !sourceUrl) {
       return res.status(400).json({ error: 'sourceTitle or sourceUrl required' });
+    }
+
+    const normalisedAiRelevant = normaliseOptionalBoolean(aiRelevant);
+    const normalisedRelevanceScore = normaliseOptionalScore(relevanceScore);
+
+    if (
+      relevanceScore !== undefined &&
+      relevanceScore !== null &&
+      relevanceScore !== '' &&
+      normalisedRelevanceScore === null
+    ) {
+      return res.status(400).json({ error: 'relevanceScore must be a number between 0 and 1' });
     }
 
     const duplicate = sourceUrl
@@ -177,6 +235,10 @@ app.post('/api/candidates', async (req: Request, res: Response) => {
         matchedKeywords: normaliseMatchedKeywords(matchedKeywords),
         llmScreeningStatus: llmScreeningStatus || 'Not screened',
         llmScreeningReason: llmScreeningReason || null,
+        aiRelevant: normalisedAiRelevant,
+        relevanceScore: normalisedRelevanceScore,
+        relevanceReason: relevanceReason || null,
+        aiRole: aiRole ? normaliseAiRole(aiRole, normalisedAiRelevant ?? true) : null,
         duplicateCheckResult: duplicateCheckResult || 'Manual candidate; duplicate check deferred to acceptance.',
         fetchedAt: fetchedAt ? new Date(fetchedAt) : new Date(),
         aiRelevanceStatus: aiRelevanceStatus || 'Unknown',

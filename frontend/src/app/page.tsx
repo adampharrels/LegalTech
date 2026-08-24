@@ -1,78 +1,71 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Database, FileSearch, ListChecks } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className="flex flex-col relative overflow-hidden" style={{ minHeight: 'calc(100vh - 8rem)' }}>
-      
-      {/* Hero Section */}
-      <div className="relative flex-col items-center justify-center py-20 flex" style={{ flex: 1 }}>
-        <div className="orb-1"></div>
-        <div className="orb-2"></div>
-
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex justify-center mb-8">
-            <div className="badge">
-              <span className="badge-dot"></span>
-              <span>AI LITIGATION TRACKER</span>
-            </div>
+    <div className="flex flex-col gap-8" style={{ minHeight: 'calc(100vh - 8rem)' }}>
+      <section className="py-20">
+        <div className="max-w-4xl">
+          <div className="badge mb-8">
+            <span className="badge-dot"></span>
+            <span>LEGAL INTELLIGENCE WORKFLOW</span>
           </div>
 
-          <div className="mb-8">
-            <h1 className="hero-title">
-              AI <span className="text-gradient">Litigation</span> Navigator
-            </h1>
-            <p className="hero-subtitle">
-              Track, analyse, and understand AI-related court cases and legal developments reshaping technology law worldwide.
-            </p>
-          </div>
+          <h1 className="hero-title">AI Litigation Navigator</h1>
+          <p className="hero-subtitle" style={{ margin: 0 }}>
+            A curated tracker for AI-related court cases, regulator actions, and source-verified legal signals.
+          </p>
 
-          <div className="flex justify-center gap-8 mt-8">
-            <div className="text-center">
-              <div className="stat-value">50+</div>
-              <div className="stat-label" style={{ fontSize: '0.875rem' }}>Active Cases</div>
-            </div>
-            <div className="text-center">
-              <div className="stat-value">15</div>
-              <div className="stat-label" style={{ fontSize: '0.875rem' }}>Legal Issues</div>
-            </div>
-            <div className="text-center">
-              <div className="stat-value">12+</div>
-              <div className="stat-label" style={{ fontSize: '0.875rem' }}>Jurisdictions</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="relative py-12 border-t">
-        <div className="container" style={{ maxWidth: '800px' }}>
-          <div className="flex justify-center gap-4 mb-8">
+          <div className="flex gap-4 mt-8" style={{ flexWrap: 'wrap' }}>
             <Link href="/cases" className="btn-primary">
               <span>Explore Cases</span>
-              <ArrowRight size={20} />
+              <ArrowRight size={18} />
             </Link>
-            <Link href="/dashboard" className="btn-secondary">
-              <span>View Insights</span>
+            <Link href="/admin/triage" className="btn-secondary">
+              <span>Review Triage Queue</span>
             </Link>
-          </div>
-
-          <div className="grid grid-cols-3 gap-6 mt-12 relative">
-            <div className="glass-panel surface-panel text-center">
-              <div className="card-value">50+</div>
-              <div className="card-label">Curated Cases</div>
-            </div>
-            <div className="glass-panel surface-panel text-center">
-              <div className="card-value">15</div>
-              <div className="card-label">Legal Issues</div>
-            </div>
-            <div className="glass-panel surface-panel text-center">
-              <div className="card-value">Global</div>
-              <div className="card-label">Jurisdictions</div>
-            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section className="grid grid-cols-3 gap-6">
+        <div className="glass-panel surface-panel">
+          <FileSearch size={20} color="var(--accent-primary)" />
+          <h2 style={{ fontSize: '1rem', marginTop: '1rem', marginBottom: '0.5rem' }}>Source Discovery</h2>
+          <p className="text-muted" style={{ fontSize: '0.875rem' }}>
+            Court, regulator, and guidance sources are ingested as reviewable legal signals.
+          </p>
+        </div>
+        <div className="glass-panel surface-panel">
+          <ListChecks size={20} color="var(--accent-primary)" />
+          <h2 style={{ fontSize: '1rem', marginTop: '1rem', marginBottom: '0.5rem' }}>Human Triage</h2>
+          <p className="text-muted" style={{ fontSize: '0.875rem' }}>
+            Candidates show matched keywords, extraction method, LLM screening, and duplicate evidence.
+          </p>
+        </div>
+        <div className="glass-panel surface-panel">
+          <Database size={20} color="var(--accent-primary)" />
+          <h2 style={{ fontSize: '1rem', marginTop: '1rem', marginBottom: '0.5rem' }}>Curated Database</h2>
+          <p className="text-muted" style={{ fontSize: '0.875rem' }}>
+            Accepted records retain source verification, review status, and structured legal taxonomy.
+          </p>
+        </div>
+      </section>
+
+      <section className="glass-panel surface-panel" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+        <div>
+          <div className="card-label">Coverage</div>
+          <div className="card-value">Court + Regulator</div>
+        </div>
+        <div>
+          <div className="card-label">Workflow</div>
+          <div className="card-value">Triage First</div>
+        </div>
+        <div>
+          <div className="card-label">Evidence</div>
+          <div className="card-value">Auditable</div>
+        </div>
+      </section>
     </div>
   );
 }

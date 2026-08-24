@@ -26,7 +26,7 @@ export default async function AdminPage() {
   };
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+    <div className="flex-col gap-8" style={{ display: 'flex' }}>
       <div className="flex-col gap-2" style={{ display: 'flex' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Admin Panel</h1>
         <p className="text-muted" style={{ maxWidth: '42rem' }}>
@@ -188,7 +188,7 @@ export default async function AdminPage() {
                      </td>
                      <td style={{ padding: '0.75rem 1rem' }}>
                        {c.reviewStatus === 'LLM analysed' || c.reviewStatus === 'Human reviewed' ? (
-                         <Link href={`/cases/${c.slug}#ai-summary`} className="hover-text-accent" style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', textDecoration: 'none' }}>
+                         <Link href={`/cases/${c.slug}#ai-summary`} className="hover-text-accent" style={{ padding: '0.25rem 0.5rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', textDecoration: 'none' }}>
                            View AI summary
                          </Link>
                        ) : (

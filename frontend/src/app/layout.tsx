@@ -27,7 +27,6 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body>
-        <div className="animated-bg"></div>
         <div className="app-shell">
           <Header />
           <main className="container pt-4 pb-8" style={{ flex: 1 }}>

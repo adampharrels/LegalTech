@@ -69,6 +69,10 @@ model CaseCandidate {
   matchedKeywords   String?
   llmScreeningStatus String   @default("Not screened")
   llmScreeningReason String?
+  aiRelevant        Boolean?
+  relevanceScore    Float?
+  relevanceReason   String?
+  aiRole            String?
   duplicateCheckResult String?
   fetchedAt         DateTime?
   aiRelevanceStatus String    @default("Unknown")
