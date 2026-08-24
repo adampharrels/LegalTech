@@ -42,6 +42,10 @@ export interface CandidateHints {
   matchedKeywords?: string[];
   llmScreeningStatus?: string;
   llmScreeningReason?: string;
+  aiRelevant?: boolean | null;
+  relevanceScore?: number | null;
+  relevanceReason?: string | null;
+  aiRole?: string | null;
   duplicateCheckResult?: string;
   fetchedAt?: Date;
 }
@@ -583,6 +587,10 @@ export function convertToCandidateFormat(caseData: CaseData, hints: CandidateHin
     matchedKeywords: hints.matchedKeywords ? JSON.stringify(hints.matchedKeywords) : null,
     llmScreeningStatus: hints.llmScreeningStatus || 'Not screened',
     llmScreeningReason: hints.llmScreeningReason || null,
+    aiRelevant: hints.aiRelevant ?? null,
+    relevanceScore: hints.relevanceScore ?? null,
+    relevanceReason: hints.relevanceReason ?? null,
+    aiRole: hints.aiRole ?? null,
     duplicateCheckResult: hints.duplicateCheckResult || null,
     fetchedAt: hints.fetchedAt || caseData.fetchedAt || null,
     aiRelevanceStatus: hints.aiRelevanceStatus || 'Unknown',

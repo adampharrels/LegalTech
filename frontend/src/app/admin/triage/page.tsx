@@ -33,8 +33,9 @@ function parseMatchedKeywords(value: string | null) {
 
 export default async function TriagePage() {
   const candidates = await getCandidates();
-  const openCandidates = candidates.filter((candidate) => !['Accepted', 'Rejected'].includes(candidate.candidateStatus));
-  const reviewedCandidates = candidates.filter((candidate) => ['Accepted', 'Rejected'].includes(candidate.candidateStatus));
+  const openCandidates = candidates.filter((candidate) => !['Accepted', 'Rejected', 'Archived'].includes(candidate.candidateStatus));
+  const reviewedCandidates = candidates.filter((candidate) => ['Accepted', 'Rejected', 'Archived'].includes(candidate.candidateStatus));
+  const archivedCandidates = candidates.filter((candidate) => candidate.candidateStatus === 'Archived');
 
   return (
     <div className="flex-col gap-8" style={{ display: 'flex' }}>
@@ -166,6 +167,14 @@ export default async function TriagePage() {
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.sourceCategory}</span>
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.extractionMethod}</span>
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.aiRelevanceStatus}</span>
+                {candidate.relevanceScore !== null && (
+                  <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                    {Math.round(candidate.relevanceScore * 100)}%
+                  </span>
+                )}
+                {candidate.aiRole && (
+                  <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.aiRole}</span>
+                )}
                 <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.materialityLevel}</span>
               </div>
 
@@ -187,8 +196,12 @@ export default async function TriagePage() {
                     <span>{candidate.sourceAdapterName || 'Manual entry'}</span>
                   </div>
                   <div>
-                    <span className="text-muted" style={{ display: 'block' }}>LLM Screen</span>
+                    <span className="text-muted" style={{ display: 'block' }}>Classifier</span>
                     <span>{candidate.llmScreeningStatus}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted" style={{ display: 'block' }}>AI Relevance</span>
+                    <span>{candidate.aiRelevant === null ? 'Unknown' : candidate.aiRelevant ? 'Relevant' : 'Not relevant'}</span>
                   </div>
                   <div>
                     <span className="text-muted" style={{ display: 'block' }}>Fetched</span>
@@ -208,8 +221,8 @@ export default async function TriagePage() {
                     <span className="text-muted" style={{ fontSize: '0.75rem' }}>No keyword evidence recorded.</span>
                   )}
                 </div>
-                {candidate.llmScreeningReason && (
-                  <p className="text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.5, marginTop: '0.75rem' }}>{candidate.llmScreeningReason}</p>
+                {(candidate.relevanceReason || candidate.llmScreeningReason) && (
+                  <p className="text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.5, marginTop: '0.75rem' }}>{candidate.relevanceReason || candidate.llmScreeningReason}</p>
                 )}
               </div>
 
@@ -244,12 +257,21 @@ export default async function TriagePage() {
 
           {reviewedCandidates.length > 0 && (
             <section className="glass-panel surface-panel" style={{ marginTop: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Recent Decisions</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Recent Outcomes</h2>
+              {archivedCandidates.length > 0 && (
+                <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
+                  {archivedCandidates.length} candidate{archivedCandidates.length !== 1 ? 's' : ''} archived as not materially AI-related.
+                </p>
+              )}
               <div className="flex-col gap-3" style={{ display: 'flex' }}>
                 {reviewedCandidates.slice(0, 8).map((candidate) => (
                   <div key={candidate.id} className="flex justify-between" style={{ gap: '1rem', alignItems: 'center', fontSize: '0.875rem' }}>
                     <span>{candidate.caseName}</span>
-                    <span className="text-muted">{candidate.candidateStatus}{candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ''}</span>
+                    <span className="text-muted">
+                      {candidate.candidateStatus}
+                      {candidate.relevanceScore !== null ? ` · ${Math.round(candidate.relevanceScore * 100)}%` : ''}
+                      {candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ''}
+                    </span>
                   </div>
                 ))}
               </div>

@@ -98,6 +98,10 @@ export type CaseCandidate = {
   matchedKeywords: string | null;
   llmScreeningStatus: string;
   llmScreeningReason: string | null;
+  aiRelevant: boolean | null;
+  relevanceScore: number | null;
+  relevanceReason: string | null;
+  aiRole: string | null;
   duplicateCheckResult: string | null;
   fetchedAt: string | null;
   aiRelevanceStatus: string;

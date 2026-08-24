@@ -5,7 +5,7 @@
  */
 
 import { CaseIngestor, convertToCandidateFormat, getMatchedKeywords, type CaseData } from './case-ingestor';
-import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, type LLMAnalysisResult } from './llm-processor';
+import { LLM_MODEL_NAME, LLM_RELEVANCE_PROMPT_VERSION, classifyCaseRelevanceWithLLM, type LLMRelevanceResult } from './llm-processor';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -28,23 +28,28 @@ function duplicateFiltersForCandidate(caseData: CaseData) {
   ];
 }
 
-function buildReviewerNotes(caseData: CaseData, llmResult: LLMAnalysisResult | null) {
-  const matchedKeywords = getMatchedKeywords(caseData);
-  const keywordNote = `Matched keywords: ${matchedKeywords.length ? matchedKeywords.join(', ') : 'none'}.`;
+function heuristicRelevance(caseData: CaseData, matchedKeywords: string[]): LLMRelevanceResult {
+  const hasStrongMatch = matchedKeywords.length > 0;
 
-  if (!llmResult) {
-    return [
-      keywordNote,
-      'Passed keyword filter. LLM screening was unavailable, so this candidate needs human relevance review.',
-    ].join('\n');
-  }
+  return {
+    aiRelevant: hasStrongMatch,
+    confidence: hasStrongMatch ? 0.72 : 0.65,
+    reason: hasStrongMatch
+      ? `Keyword evidence suggests possible AI relevance: ${matchedKeywords.join(', ')}.`
+      : 'No AI keyword evidence detected and LLM classification was unavailable.',
+    aiRole: hasStrongMatch ? 'OTHER_AI' : 'NOT_AI',
+  };
+}
+
+function buildReviewerNotes(caseData: CaseData, relevance: LLMRelevanceResult, matchedKeywords: string[]) {
+  const keywordNote = `Matched keywords: ${matchedKeywords.length ? matchedKeywords.join(', ') : 'none'}.`;
 
   return [
     keywordNote,
-    `LLM screened by ${LLM_MODEL_NAME} (${LLM_PROMPT_VERSION}).`,
-    `Suggested issues: ${llmResult.issues.length ? llmResult.issues.join(', ') : 'none'}.`,
-    `Suggested tracking domains: ${llmResult.legalAreas.length ? llmResult.legalAreas.join(', ') : 'none'}.`,
-    `Why it matters: ${llmResult.whyItMatters || caseData.summary || 'Not provided.'}`,
+    `Relevance screened by ${LLM_MODEL_NAME} (${LLM_RELEVANCE_PROMPT_VERSION}).`,
+    `AI relevant: ${relevance.aiRelevant ? 'yes' : 'no'} (${Math.round(relevance.confidence * 100)}%).`,
+    `AI role: ${relevance.aiRole}.`,
+    `Reason: ${relevance.reason || caseData.summary || 'Not provided.'}`,
   ].join('\n');
 }
 
@@ -62,26 +67,19 @@ async function main() {
     console.log(`\nScreening ${cases.length} legal signals for the triage queue...\n`);
 
     let queuedCount = 0;
+    let archivedCount = 0;
     let skippedCount = 0;
 
     for (const caseData of cases) {
       try {
         const matchedKeywords = getMatchedKeywords(caseData);
 
-        if (matchedKeywords.length === 0) {
-          console.log(`   Skipped (Pass 1 - Keyword Filter): ${caseData.caseName}`);
-          skippedCount++;
-          continue;
-        }
-
-        console.log(`   Passed keyword filter, analysing with LLM: ${caseData.caseName}`);
-        const llmResult = await analyzeCaseWithLLM(caseData);
-
-        if (llmResult && !llmResult.isAiRelated) {
-          console.log(`   Skipped (Pass 2 - LLM Filter): ${caseData.caseName}`);
-          skippedCount++;
-          continue;
-        }
+        console.log(`   Classifying AI relevance: ${caseData.caseName}`);
+        const llmRelevance = await classifyCaseRelevanceWithLLM(caseData);
+        const relevance = llmRelevance || heuristicRelevance(caseData, matchedKeywords);
+        const classifierStatus = llmRelevance
+          ? (relevance.aiRelevant ? 'Relevant' : 'Not relevant')
+          : (matchedKeywords.length > 0 ? 'Heuristic review needed' : 'Heuristic archived');
 
         const existingCaseFilters = duplicateFiltersForCase(caseData);
         const existingCase = existingCaseFilters.length > 0
@@ -98,7 +96,7 @@ async function main() {
         const existingCandidate = existingCandidateFilters.length > 0
           ? await prisma.caseCandidate.findFirst({
             where: {
-              candidateStatus: { notIn: ['Rejected'] },
+              candidateStatus: { notIn: ['Rejected', 'Archived'] },
               OR: existingCandidateFilters,
             },
           })
@@ -111,24 +109,38 @@ async function main() {
         }
 
         const candidateHints = {
-          aiRelevanceStatus: llmResult ? 'Relevant' : 'Unknown',
-          materialityLevel: llmResult ? 'High' : 'Medium',
+          aiRelevanceStatus: relevance.aiRelevant ? 'Relevant' : 'Not relevant',
+          materialityLevel: relevance.aiRelevant && relevance.confidence >= 0.8 ? 'High' : relevance.aiRelevant ? 'Medium' : 'Low',
           matchedKeywords,
-          llmScreeningStatus: llmResult ? 'Relevant' : 'Unavailable',
-          llmScreeningReason: llmResult?.whyItMatters || 'LLM screening unavailable; queued after keyword match.',
+          llmScreeningStatus: classifierStatus,
+          llmScreeningReason: relevance.reason,
+          aiRelevant: relevance.aiRelevant,
+          relevanceScore: relevance.confidence,
+          relevanceReason: relevance.reason,
+          aiRole: relevance.aiRole,
           duplicateCheckResult: 'No accepted case or open candidate matched by citation or source URL.',
           fetchedAt: caseData.fetchedAt || new Date(),
-          reviewerNotes: buildReviewerNotes(caseData, llmResult),
-          ...(llmResult?.summaryShort ? { summaryShort: llmResult.summaryShort } : {}),
-          ...(llmResult?.summaryLong ? { summaryLong: llmResult.summaryLong } : {}),
+          reviewerNotes: buildReviewerNotes(caseData, relevance, matchedKeywords),
         };
 
         const candidateData = convertToCandidateFormat(caseData, candidateHints);
 
-        await prisma.caseCandidate.create({ data: candidateData });
+        await prisma.caseCandidate.create({
+          data: {
+            ...candidateData,
+            candidateStatus: relevance.aiRelevant ? 'Needs human triage' : 'Archived',
+            rejectionReason: relevance.aiRelevant ? null : 'Not AI-related',
+            reviewedAt: relevance.aiRelevant ? null : new Date(),
+          },
+        });
 
-        console.log(`   Queued for triage: ${caseData.caseName}`);
-        queuedCount++;
+        if (relevance.aiRelevant) {
+          console.log(`   Queued for triage: ${caseData.caseName}`);
+          queuedCount++;
+        } else {
+          console.log(`   Archived non-AI candidate: ${caseData.caseName}`);
+          archivedCount++;
+        }
       } catch (error) {
         console.error(
           `   Error queueing candidate: ${error instanceof Error ? error.message : String(error)}`
@@ -139,6 +151,7 @@ async function main() {
     console.log('\n' + '='.repeat(60));
     console.log('Ingestion Complete:');
     console.log(`   New candidates queued: ${queuedCount}`);
+    console.log(`   Non-AI candidates archived: ${archivedCount}`);
     console.log(`   Signals skipped: ${skippedCount}`);
     console.log(`   Total processed: ${cases.length}`);
     console.log('='.repeat(60) + '\n');
