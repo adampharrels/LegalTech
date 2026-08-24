@@ -1,6 +1,7 @@
 import { getCases } from '@/actions/cases';
 import { analyzeCase, deleteCase, createBasicCase } from '@/actions/admin';
 import Link from 'next/link';
+import { formatTrackingLabel, lifecycleStatuses } from '@/lib/caseTracking';
 
 export default async function AdminPage() {
   const cases = await getCases();
@@ -30,7 +31,7 @@ export default async function AdminPage() {
       <div className="flex-col gap-2" style={{ display: 'flex' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Admin Panel</h1>
         <p className="text-muted" style={{ maxWidth: '42rem' }}>
-          Manage the database curations, add new cases, and handle taxonomy mapping.
+          Manage case records, update legal developments, and keep the public tracker current.
         </p>
       </div>
 
@@ -87,10 +88,9 @@ export default async function AdminPage() {
               <div>
                 <label style={labelStyle}>Status</label>
                 <select name="statusPublic" style={inputStyle}>
-                  <option value="Active" style={{ color: '#000' }}>Active</option>
-                  <option value="Closed" style={{ color: '#000' }}>Closed</option>
-                  <option value="Settled" style={{ color: '#000' }}>Settled</option>
-                  <option value="Dismissed" style={{ color: '#000' }}>Dismissed</option>
+                  {lifecycleStatuses.map((status) => (
+                    <option key={status} value={status} style={{ color: '#000' }}>{formatTrackingLabel(status)}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -170,7 +170,6 @@ export default async function AdminPage() {
                    <th style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm) 0 0 0' }}>Case Name</th>
                    <th style={{ padding: '0.75rem 1rem' }}>Jurisdiction</th>
                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-                   <th style={{ padding: '0.75rem 1rem' }}>Review</th>
                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right', borderRadius: '0 var(--radius-sm) 0 0' }}>Actions</th>
                  </tr>
                </thead>
@@ -184,19 +183,16 @@ export default async function AdminPage() {
                      </td>
                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>{c.jurisdiction}</td>
                      <td style={{ padding: '0.75rem 1rem' }}>
-                       <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.caseLifecycleStatus}</span>
-                     </td>
-                     <td style={{ padding: '0.75rem 1rem' }}>
-                       {c.reviewStatus === 'LLM analysed' || c.reviewStatus === 'Human reviewed' ? (
-                         <Link href={`/cases/${c.slug}#ai-summary`} className="hover-text-accent" style={{ padding: '0.25rem 0.5rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', textDecoration: 'none' }}>
-                           View AI summary
-                         </Link>
-                       ) : (
-                         <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{c.reviewStatus}</span>
-                       )}
+                       <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{formatTrackingLabel(c.caseLifecycleStatus)}</span>
                      </td>
                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <Link href={`/admin/cases/${c.id}`} className="hover-text-accent" style={{ color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}>
+                            Manage
+                          </Link>
+                          <Link href={`/cases/${c.slug}`} className="hover-text-accent" style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none' }}>
+                            View
+                          </Link>
                           <form action={async () => {
                             'use server'
                             await analyzeCase(c.id);
@@ -219,7 +215,7 @@ export default async function AdminPage() {
                  ))}
                  {cases.length === 0 && (
                    <tr>
-                     <td colSpan={5} style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No cases in database.</td>
+                     <td colSpan={4} style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No cases in database.</td>
                    </tr>
                  )}
                </tbody>

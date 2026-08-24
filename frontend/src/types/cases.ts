@@ -47,14 +47,17 @@ export type CaseSummary = {
   docketNumber?: string | null;
   issues: CaseIssue[];
   legalAreas: CaseLegalArea[];
+  events?: CaseEvent[];
 };
 
 export type CaseEvent = {
   id: string;
+  caseId?: string;
   eventDate: string;
   eventType: string;
   title: string;
   description: string | null;
+  sourceId?: string | null;
 };
 
 export type CaseSource = {

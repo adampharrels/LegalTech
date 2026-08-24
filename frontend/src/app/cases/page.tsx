@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { getCases, getIssues, getLegalAreas } from '@/actions/cases';
 import FilterSidebar from '@/components/FilterSidebar';
 import ExportButton from './ExportButton';
-import { ArrowRight, Calendar, MapPin, Scale } from 'lucide-react';
+import { ArrowRight, Calendar, Scale } from 'lucide-react';
+import { formatDate, formatTrackingLabel } from '@/lib/caseTracking';
 
 export default async function CasesPage({
   searchParams,
@@ -56,7 +57,10 @@ export default async function CasesPage({
               <p className="text-muted">Try adjusting your filters or check back later.</p>
             </div>
           ) : (
-            cases.map((c) => (
+            cases.map((c) => {
+              const latestEvent = c.events?.[0];
+
+              return (
               <Link href={`/cases/${c.slug}`} key={c.id} style={{ display: 'block' }}>
                 <div className="glass-panel surface-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
                   <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
@@ -64,23 +68,20 @@ export default async function CasesPage({
                       <h2 className="hover-text-accent" style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {c.caseName}
                       </h2>
-                      <div className="flex items-center gap-4 text-muted mt-4" style={{ fontSize: '0.875rem' }}>
-                        {c.filingDate && (
-                          <span className="flex items-center gap-2">
-                            <Calendar size={16} />
-                            {new Date(c.filingDate).toLocaleDateString()}
+                      <p className="text-muted" style={{ marginTop: '0.35rem', fontSize: '0.875rem' }}>{c.courtName}</p>
+                      <div className="flex items-center gap-4 text-muted mt-4" style={{ fontSize: '0.875rem', flexWrap: 'wrap' }}>
+                        <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.12)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {formatTrackingLabel(c.caseLifecycleStatus)}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <Calendar size={16} />
+                          Filed {formatDate(c.filingDate)}
+                        </span>
+                        {c.decisionDate && (
+                          <span>
+                            Decision {formatDate(c.decisionDate)}
                           </span>
                         )}
-                        <span className="flex items-center gap-2">
-                          <MapPin size={16} />
-                          {c.jurisdiction}
-                        </span>
-                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.75rem' }}>
-                          {c.caseLifecycleStatus}
-                        </span>
-                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
-                          {c.reviewStatus}
-                        </span>
                       </div>
                     </div>
                     <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -93,16 +94,29 @@ export default async function CasesPage({
                   
                   {c.issues.length > 0 && (
                     <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
-                      {c.issues.map((ci) => (
+                      {c.issues.slice(0, 3).map((ci) => (
                         <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid var(--border-color)' }}>
                           {ci.issue.name}
                         </span>
                       ))}
                     </div>
                   )}
+
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                    <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Latest</div>
+                    {latestEvent ? (
+                      <p style={{ fontSize: '0.875rem' }}>
+                        <span className="text-muted">{formatDate(latestEvent.eventDate)} - </span>
+                        {latestEvent.title}
+                      </p>
+                    ) : (
+                      <p className="text-muted" style={{ fontSize: '0.875rem' }}>No timeline developments recorded yet.</p>
+                    )}
+                  </div>
                 </div>
               </Link>
-            ))
+              );
+            })
           )}
         </div>
       </div>

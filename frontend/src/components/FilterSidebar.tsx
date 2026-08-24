@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import type { Issue, LegalArea } from '@/types/cases';
+import { formatTrackingLabel, lifecycleStatuses } from '@/lib/caseTracking';
 
 export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[], legalAreas: LegalArea[] }) {
   const router = useRouter();
@@ -165,7 +166,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
       <div className="glass-panel surface-panel" style={sectionStyle}>
         <h3 style={titleStyle}>Case Status</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {['Active', 'Closed', 'Settled', 'Dismissed', 'Pending'].map(status => (
+          {lifecycleStatuses.map(status => (
             <label key={status} style={labelStyle} onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}>
               <input 
                 type="checkbox" 
@@ -173,7 +174,7 @@ export default function FilterSidebar({ issues, legalAreas }: { issues: Issue[],
                 checked={isChecked('caseLifecycleStatus', status)}
                 onChange={(e) => handleCheck('caseLifecycleStatus', status, e.target.checked)}
               />
-              <span>{status}</span>
+              <span>{formatTrackingLabel(status)}</span>
             </label>
           ))}
         </div>

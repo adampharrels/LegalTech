@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import type { CaseCandidate } from '@/types/cases';
+import type { CaseCandidate, CaseDetail } from '@/types/cases';
 
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
@@ -97,6 +97,18 @@ export async function getCandidates(status?: string): Promise<CaseCandidate[]> {
   }
 
   return response.json() as Promise<CaseCandidate[]>;
+}
+
+export async function getCaseById(id: string): Promise<CaseDetail | null> {
+  const response = await fetch(`${API_URL}/cases/id/${id}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json() as Promise<CaseDetail>;
 }
 
 export async function createCandidate(formData: FormData) {
@@ -214,4 +226,75 @@ export async function createBasicCase(formData: FormData) {
     revalidatePath('/dashboard');
     redirect(`/cases/${created.slug}`);
   }
+}
+
+export async function updateCaseTracking(formData: FormData) {
+  const caseId = String(formData.get('caseId') || '');
+  const caseSlug = String(formData.get('caseSlug') || '');
+  const payload = {
+    caseLifecycleStatus: formData.get('caseLifecycleStatus'),
+    filingDate: formData.get('filingDate'),
+    decisionDate: formData.get('decisionDate'),
+    outcome: formData.get('outcome'),
+    summaryShort: formData.get('summaryShort'),
+    summaryLong: formData.get('summaryLong'),
+    whyItMatters: formData.get('whyItMatters'),
+    aiRelevanceStatus: formData.get('aiRelevanceStatus'),
+    materialityLevel: formData.get('materialityLevel'),
+  };
+
+  const response = await fetch(`${API_URL}/cases/${caseId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update case tracking state');
+  }
+
+  revalidatePath('/admin');
+  revalidatePath(`/admin/cases/${caseId}`);
+  revalidatePath('/cases');
+  revalidatePath(`/cases/${caseSlug}`);
+  revalidatePath('/dashboard');
+  redirect(`/admin/cases/${caseId}`);
+}
+
+export async function addCaseDevelopment(formData: FormData) {
+  const caseId = String(formData.get('caseId') || '');
+  const caseSlug = String(formData.get('caseSlug') || '');
+  const payload = {
+    eventType: formData.get('eventType'),
+    eventDate: formData.get('eventDate'),
+    title: formData.get('title'),
+    description: formData.get('description'),
+    sourceUrl: formData.get('sourceUrl'),
+    sourceTitle: formData.get('sourceTitle'),
+    sourcePublisher: formData.get('sourcePublisher'),
+    sourceType: formData.get('sourceType'),
+    caseLifecycleStatus: formData.get('caseLifecycleStatus'),
+    decisionDate: formData.get('decisionDate'),
+    outcome: formData.get('outcome'),
+    summaryShort: formData.get('summaryShort'),
+    summaryLong: formData.get('summaryLong'),
+    whyItMatters: formData.get('whyItMatters'),
+  };
+
+  const response = await fetch(`${API_URL}/cases/${caseId}/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to add case development');
+  }
+
+  revalidatePath('/admin');
+  revalidatePath(`/admin/cases/${caseId}`);
+  revalidatePath('/cases');
+  revalidatePath(`/cases/${caseSlug}`);
+  revalidatePath('/dashboard');
+  redirect(`/admin/cases/${caseId}`);
 }

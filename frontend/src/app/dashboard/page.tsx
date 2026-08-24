@@ -6,7 +6,7 @@ export default async function DashboardPage() {
   const issuesList = await getIssues();
   
   const totalCases = cases.length;
-  const activeCases = cases.filter((c) => c.caseLifecycleStatus === 'Active').length;
+  const activeCases = cases.filter((c) => ['ONGOING', 'Active', 'Pending', 'Published'].includes(c.caseLifecycleStatus)).length;
   const highMateriality = cases.filter((c) => c.materialityLevel === 'High').length;
 
   // Simple aggregation for jurisdictions
