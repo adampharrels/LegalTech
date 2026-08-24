@@ -43,7 +43,6 @@ export default async function CaseDetailPage({
     border: status === 'Verified' ? '1px solid rgba(34, 197, 94, 0.2)' : status === 'Broken' ? '1px solid rgba(239, 68, 68, 0.2)' : status === 'Needs checking' ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid var(--border-color)',
     fontSize: '0.6875rem',
     textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em',
   });
   const sourceInputStyle = {
     width: '100%',
@@ -62,7 +61,7 @@ export default async function CaseDetailPage({
   };
 
   return (
-    <div className="flex-col gap-8 pb-12" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+    <div className="flex-col gap-8 pb-12" style={{ display: 'flex' }}>
       <div className="flex justify-between items-center" style={{ display: 'flex' }}>
         <Link href="/cases" className="hover-text-primary" style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }}>
           <ArrowLeft size={16} style={{ marginRight: '0.5rem' }} />
@@ -71,25 +70,23 @@ export default async function CaseDetailPage({
         <PrintButton />
       </div>
 
-      <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden', padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '16rem', height: '16rem', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '50%', filter: 'blur(3rem)', pointerEvents: 'none', transform: 'translate(30%, -50%)' }}></div>
-        
+      <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden', padding: '2rem', borderRadius: 'var(--radius-md)' }}>
         <div className="flex gap-2 mb-6" style={{ flexWrap: 'wrap', position: 'relative', zIndex: 10 }}>
-          <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(255, 255, 255, 0.1)', color: 'var(--text-primary)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
             {caseData.caseLifecycleStatus}
           </span>
           {caseData.materialityLevel === 'High' && (
-            <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <AlertTriangle size={12} />
               High Materiality
             </span>
           )}
-          <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.2)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ padding: '0.25rem 0.75rem', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid var(--border-color)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>
             {caseData.reviewStatus}
           </span>
         </div>
 
-        <h1 style={{ fontSize: '3rem', fontWeight: 700, letterSpacing: '-0.025em', marginBottom: '1rem', position: 'relative', zIndex: 10, lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 700, marginBottom: '1rem', position: 'relative', zIndex: 10, lineHeight: 1.1 }}>
           {caseData.caseName}
         </h1>
 
@@ -134,7 +131,7 @@ export default async function CaseDetailPage({
             <section id="ai-summary" className="glass-panel surface-panel flex-col gap-4" style={{ display: 'flex', padding: '1.5rem', borderRadius: 'var(--radius-md)', scrollMarginTop: '2rem' }}>
               <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>AI Summary</h2>
-                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', background: caseData.aiRelevanceStatus === 'Relevant' ? 'rgba(6, 182, 212, 0.12)' : caseData.aiRelevanceStatus === 'Not relevant' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.08)', color: caseData.aiRelevanceStatus === 'Relevant' ? 'var(--accent-primary)' : caseData.aiRelevanceStatus === 'Not relevant' ? '#ef4444' : 'var(--text-secondary)', border: caseData.aiRelevanceStatus === 'Relevant' ? '1px solid rgba(6, 182, 212, 0.2)' : caseData.aiRelevanceStatus === 'Not relevant' ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-color)', fontSize: '0.75rem', fontWeight: 600 }}>
+                <span style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-sm)', background: caseData.aiRelevanceStatus === 'Not relevant' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(148, 163, 184, 0.1)', color: caseData.aiRelevanceStatus === 'Not relevant' ? '#ef4444' : 'var(--accent-primary)', border: caseData.aiRelevanceStatus === 'Not relevant' ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-color)', fontSize: '0.75rem', fontWeight: 600 }}>
                   {caseData.aiRelevanceStatus}
                 </span>
               </div>
@@ -184,7 +181,7 @@ export default async function CaseDetailPage({
                   <h3 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Generated Issues</h3>
                   <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                     {generatedIssueSlugs.length > 0 ? generatedIssueSlugs.map((slug) => (
-                      <span key={slug} style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                      <span key={slug} style={{ padding: '0.25rem 0.5rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
                         {slug}
                       </span>
                     )) : <span className="text-muted" style={{ fontSize: '0.875rem' }}>No issue tags generated.</span>}
@@ -321,7 +318,7 @@ export default async function CaseDetailPage({
                       <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span>{source.title}</span>
                         {source.isPrimary && (
-                          <span style={{ padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          <span style={{ padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', border: '1px solid var(--border-color)', fontSize: '0.6875rem', textTransform: 'uppercase' }}>
                             Primary
                           </span>
                         )}

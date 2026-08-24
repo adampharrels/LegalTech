@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     .slice(0, 5);
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+    <div className="flex-col gap-8" style={{ display: 'flex' }}>
       <div className="flex-col gap-2" style={{ display: 'flex' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Intelligence Dashboard</h1>
         <p className="text-muted" style={{ maxWidth: '42rem' }}>
@@ -30,9 +30,9 @@ export default async function DashboardPage() {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel">
           <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(6, 182, 212, 0.2)', borderRadius: 'var(--radius-md)', color: 'var(--accent-primary)' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-primary)' }}>
               <Scale size={24} />
             </div>
             <h3 className="card-label">Total Cases</h3>
@@ -40,9 +40,9 @@ export default async function DashboardPage() {
           <div className="card-value">{totalCases}</div>
         </div>
 
-        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel">
           <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(34, 197, 94, 0.2)', borderRadius: 'var(--radius-md)', color: '#22c55e' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#22c55e' }}>
               <Activity size={24} />
             </div>
             <h3 className="card-label">Active Disputes</h3>
@@ -50,9 +50,9 @@ export default async function DashboardPage() {
           <div className="card-value">{activeCases}</div>
         </div>
 
-        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel">
           <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(239, 68, 68, 0.2)', borderRadius: 'var(--radius-md)', color: '#ef4444' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#ef4444' }}>
               <Globe size={24} />
             </div>
             <h3 className="card-label">High Materiality</h3>
@@ -60,9 +60,9 @@ export default async function DashboardPage() {
           <div className="card-value">{highMateriality}</div>
         </div>
         
-        <div className="glass-panel surface-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="glass-panel surface-panel">
           <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(168, 85, 247, 0.2)', borderRadius: 'var(--radius-md)', color: '#a855f7' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#c4b5fd' }}>
               <BookOpen size={24} />
             </div>
             <h3 className="card-label">Issues Tracked</h3>
@@ -101,21 +101,15 @@ export default async function DashboardPage() {
 
         {/* Info Box */}
         <div className="glass-panel flex-col items-center justify-center text-center gap-4" style={{ display: 'flex' }}>
-           <div style={{ width: '4rem', height: '4rem', background: 'rgba(6, 182, 212, 0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
+           <div style={{ width: '3rem', height: '3rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
               <Activity size={32} />
            </div>
-           <h3 style={{ fontSize: '1.5rem', fontWeight: 700 }}>More Charts Coming Soon</h3>
+           <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Trend Analysis</h3>
            <p className="text-muted" style={{ maxWidth: '24rem' }}>
-             We will be integrating a charting library to visualize case timelines and distribution of legal areas.
+             Additional charts can be added here for filing timelines, review status, and source verification coverage.
            </p>
         </div>
       </div>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

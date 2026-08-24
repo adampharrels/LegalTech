@@ -29,7 +29,7 @@ export default async function CasesPage({
   const legalAreas = await getLegalAreas();
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+    <div className="flex-col gap-8" style={{ display: 'flex' }}>
       <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
         <div className="flex-col gap-2" style={{ display: 'flex' }}>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Case Explorer</h1>
@@ -78,12 +78,12 @@ export default async function CasesPage({
                         <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.75rem' }}>
                           {c.caseLifecycleStatus}
                         </span>
-                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
+                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
                           {c.reviewStatus}
                         </span>
                       </div>
                     </div>
-                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: 'rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <ArrowRight size={20} color="var(--accent-primary)" />
                     </div>
                   </div>
@@ -94,7 +94,7 @@ export default async function CasesPage({
                   {c.issues.length > 0 && (
                     <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
                       {c.issues.map((ci) => (
-                        <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                        <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid var(--border-color)' }}>
                           {ci.issue.name}
                         </span>
                       ))}

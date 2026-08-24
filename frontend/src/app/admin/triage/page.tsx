@@ -37,7 +37,7 @@ export default async function TriagePage() {
   const reviewedCandidates = candidates.filter((candidate) => ['Accepted', 'Rejected'].includes(candidate.candidateStatus));
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex', animation: 'fadeIn 0.5s ease-in-out' }}>
+    <div className="flex-col gap-8" style={{ display: 'flex' }}>
       <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
         <div className="flex-col gap-2" style={{ display: 'flex' }}>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Triage Queue</h1>
@@ -156,7 +156,7 @@ export default async function TriagePage() {
                     {candidate.courtName} · {candidate.jurisdiction}
                   </p>
                 </div>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
+                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
                   {candidate.candidateStatus}
                 </span>
               </div>
@@ -201,7 +201,7 @@ export default async function TriagePage() {
                 </div>
                 <div className="flex gap-2" style={{ flexWrap: 'wrap', marginTop: '0.75rem' }}>
                   {matchedKeywords.length > 0 ? matchedKeywords.map((keyword) => (
-                    <span key={keyword} style={{ padding: '0.2rem 0.45rem', background: 'rgba(6, 182, 212, 0.12)', color: 'var(--accent-primary)', border: '1px solid rgba(6, 182, 212, 0.2)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
+                    <span key={keyword} style={{ padding: '0.2rem 0.45rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
                       {keyword}
                     </span>
                   )) : (
