@@ -171,11 +171,38 @@ function sourceCategoryFromType(sourceType: string | undefined) {
     return 'Guidance';
   }
 
+  if (sourceType === 'Media coverage') {
+    return 'Media';
+  }
+
   if (sourceType && sourceType !== 'Court record') {
     return 'Regulator';
   }
 
   return 'Court';
+}
+
+const COURT_MENTION_PATTERNS: Array<[RegExp, string]> = [
+  [/\bhigh court\b/i, 'High Court of Australia'],
+  [/\bfederal court\b/i, 'Federal Court of Australia'],
+  [/\bfamily court\b/i, 'Family Court of Australia'],
+  [/\bvictorian supreme court\b|\bsupreme court of victoria\b/i, 'Supreme Court of Victoria'],
+  [/\bnsw supreme court\b|\bsupreme court of new south wales\b/i, 'Supreme Court of New South Wales'],
+  [/\bsupreme court of queensland\b|\bqueensland supreme court\b/i, 'Supreme Court of Queensland'],
+  [/\bsupreme court of western australia\b/i, 'Supreme Court of Western Australia'],
+  [/\bsupreme court of south australia\b/i, 'Supreme Court of South Australia'],
+  [/\bcounty court\b/i, 'County Court of Victoria'],
+  [/\bdistrict court\b/i, 'District Court'],
+];
+
+function extractCourtMention(text: string, fallback: string) {
+  for (const [pattern, label] of COURT_MENTION_PATTERNS) {
+    if (pattern.test(text)) {
+      return label;
+    }
+  }
+
+  return fallback;
 }
 
 class RssLegalSignalSource implements CaseSource {
@@ -328,6 +355,124 @@ class HtmlLegalSignalSource implements CaseSource {
   }
 }
 
+interface NewswireItem {
+  headline: string;
+  excerpt: string;
+  matterName: string | null;
+  matterUrl: string | null;
+  publishedDate: Date;
+}
+
+function readNewswireCard(
+  $card: cheerio.Cheerio<any>,
+  pageUrl: string,
+  selectors: { headline: string; excerpt: string; matter: string; date: string }
+): NewswireItem | null {
+  const headline = cleanText($card.find(selectors.headline).first().text());
+  if (!headline) {
+    return null;
+  }
+
+  const excerpt = cleanText($card.find(selectors.excerpt).first().text());
+  const matterAnchor = $card.find(selectors.matter).first();
+  const matterName = matterAnchor.length ? cleanText(matterAnchor.text()) : null;
+  const matterHref = matterAnchor.attr('href');
+  const matterUrl = matterHref ? makeAbsoluteUrl(pageUrl, matterHref) : null;
+  const dateAttr = $card.find(selectors.date).first().attr('datetime');
+  const publishedDate = dateAttr ? new Date(dateAttr) : extractDate(`${headline} ${excerpt}`);
+
+  return {
+    headline,
+    excerpt,
+    matterName,
+    matterUrl,
+    publishedDate: Number.isNaN(publishedDate.getTime()) ? new Date() : publishedDate,
+  };
+}
+
+/**
+ * Parse ClassActions.com.au's newswire page into per-matter signals.
+ * Each matter can be reported on by many press articles; only the newest
+ * (first-seen, since the feed is newest-first) mention of a given matter
+ * is kept so the triage queue gets one candidate per matter, not one per article.
+ */
+export function extractClassActionsNewswireCases(
+  html: string,
+  pageUrl: string,
+  sourceName: string,
+  limit = 25
+): CaseData[] {
+  const $ = cheerio.load(html);
+  const items: NewswireItem[] = [];
+
+  const hero = readNewswireCard($('.nw-hero-content'), pageUrl, {
+    headline: '.nw-hero-headline',
+    excerpt: '.nw-hero-excerpt',
+    matter: '.nw-hero-matter a',
+    date: '.nw-hero-byline time',
+  });
+  if (hero) {
+    items.push(hero);
+  }
+
+  $('article.nw-card').each((_, element) => {
+    const card = readNewswireCard($(element), pageUrl, {
+      headline: '.nw-card-headline',
+      excerpt: '.nw-card-excerpt',
+      matter: '.nw-card-matter a',
+      date: '.nw-card-date time',
+    });
+    if (card) {
+      items.push(card);
+    }
+  });
+
+  const seenMatters = new Set<string>();
+  const cases: CaseData[] = [];
+  const fetchedAt = new Date();
+
+  for (const item of items) {
+    if (cases.length >= limit) {
+      break;
+    }
+
+    const dedupeKey = item.matterUrl || `${pageUrl}#${item.headline}`;
+    if (seenMatters.has(dedupeKey)) {
+      continue;
+    }
+
+    const signalText = `${item.headline} ${item.excerpt} ${item.matterName || ''}`;
+    if (!AI_SIGNAL_PATTERNS.some(({ pattern }) => pattern.test(signalText))) {
+      continue;
+    }
+
+    seenMatters.add(dedupeKey);
+
+    cases.push({
+      caseName: item.matterName || item.headline,
+      citation: '',
+      court: extractCourtMention(signalText, 'Class action matter (court not specified)'),
+      url: item.matterUrl || pageUrl,
+      year: item.publishedDate.getFullYear(),
+      summary: truncate(item.excerpt || null, 700),
+      fullText: truncate([item.headline, item.excerpt].filter(Boolean).join('\n\n') || null, 2000),
+      publishedDate: item.publishedDate,
+      source: sourceName,
+      jurisdiction: 'Australia',
+      country: 'Australia',
+      courtLevel: 'Media',
+      sourceType: 'Media coverage',
+      sourceConfidence: 'Secondary source',
+      sourceAdapterName: sourceName,
+      sourceCategory: 'Media',
+      extractionMethod: 'HTML',
+      fetchedAt,
+    });
+  }
+
+  return cases;
+}
+
 class StaticLegalSignalSource implements CaseSource {
   name: string;
 
@@ -439,6 +584,26 @@ export class ESafetyMediaReleaseIngestor extends HtmlLegalSignalSource {
   }
 }
 
+export class ClassActionsNewswireIngestor implements CaseSource {
+  name = 'ClassActions.com.au newswire';
+  private pageUrl = 'https://classactions.com.au/newswire';
+
+  constructor(private limit = 25) {}
+
+  async fetchNewCases(): Promise<CaseData[]> {
+    try {
+      console.log(`\nFetching ${this.name}...`);
+      const response = await axios.get(this.pageUrl, { timeout: 15000 });
+      const cases = extractClassActionsNewswireCases(response.data, this.pageUrl, this.name, this.limit);
+      console.log(`   Found ${cases.length} items`);
+      return cases;
+    } catch (error) {
+      console.error(`   ${this.name} fetch failed:`, error instanceof Error ? error.message : String(error));
+      return [];
+    }
+  }
+}
+
 export class FederalCourtGuidanceIngestor extends StaticLegalSignalSource {
   constructor() {
     super('Federal Court AI practice guidance', [
@@ -482,6 +647,7 @@ export class CaseIngestor {
       new ACCCMediaReleaseIngestor(),
       new OAICMediaCentreIngestor(),
       new ESafetyMediaReleaseIngestor(),
+      new ClassActionsNewswireIngestor(),
       new FederalCourtGuidanceIngestor(),
     ];
     this.sourceDelayMs = sourceDelayMs;
