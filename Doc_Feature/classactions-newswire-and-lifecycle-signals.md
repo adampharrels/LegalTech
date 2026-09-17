@@ -1,0 +1,96 @@
+# ClassActions.com.au Newswire Source and Lifecycle Signal Detection
+
+This document describes two related pieces of work on this branch:
+
+1. A new discovery source that finds AI-related Australian class actions from ClassActions.com.au's newswire page.
+2. A detector that checks newswire coverage against cases already being tracked, and proposes lifecycle status updates (for example, when a case is reported settled) for a human to confirm.
+
+Both pieces share the same page-parsing code but serve different purposes: one finds new cases, the other updates existing ones.
+
+## Background
+
+The existing ingestion pipeline (`backend/src/case-ingestor.ts`, run via `npm run ingest`) pulls from official sources: Federal Court RSS, Queensland CaseLaw, the High Court, and media releases from ASIC, ACCC, OAIC, and eSafety. These are all filing- or announcement-stage sources.
+
+Class actions are the dominant form AI-related Australian litigation has taken so far (for example, Clearview, Bunnings facial recognition, Metigy), so a class-action-specific source was worth adding. Two candidates were evaluated:
+
+- `fedcourt.gov.au`'s own class actions list: an official, government-maintained list, but it sits behind a Cloudflare bot challenge on this subdomain (returns HTTP 403 with `cf-mitigated: challenge`). The Federal Court's judgments RSS feed, on a different subdomain, is unaffected and continues to work. Getting past the challenge would require a headless browser, which was judged disproportionate to how rare these cases are. This source was skipped.
+- ClassActions.com.au's newswire page: a plain server-rendered page with no bot protection, listing press coverage of Australian class actions grouped by matter. This was adopted.
+
+## Part 1: Newswire discovery source
+
+### What it does
+
+`ClassActionsNewswireIngestor` (in `backend/src/case-ingestor.ts`) fetches `https://classactions.com.au/newswire` and extracts every news item, both the featured "hero" item and each `article.nw-card` in the feed. A single matter (for example, "Coles 'Down Down' Promotion Class Action") is often covered by dozens of separate press articles. To avoid flooding the triage queue with near-duplicate candidates, items are grouped by their matter link, and only the newest mention of each matter is kept.
+
+The newest mention of each matter is then checked against the same `AI_SIGNAL_PATTERNS` keyword list already used for ASIC, ACCC, OAIC, and eSafety. Matters that don't mention AI, automated decision-making, facial recognition, or similar terms are discarded. Matters that do match become a `CaseData` object with:
+
+- `caseName`: the matter's official name (not the headline of whichever article happened to be newest)
+- `url`: the ClassActions.com.au matter page, used later for deduplication and for matching lifecycle signals (see Part 2)
+- `court`: read from the coverage text where a specific court is named (Federal Court, a state Supreme Court, and so on), with a generic fallback when none is mentioned
+- `sourceType`: `"Media coverage"`, `sourceCategory`: `"Media"`, `courtLevel`: `"Media"` — new labels distinguishing this from court records and regulator releases
+
+This source is registered in `CaseIngestor`'s default source list alongside the existing ones, so it runs automatically with `npm run ingest`.
+
+### Key files
+
+- `backend/src/case-ingestor.ts`: `extractNewswireItems`, `latestNewswireItemsByMatter`, `extractClassActionsNewswireCases`, `ClassActionsNewswireIngestor`
+- `backend/src/case-ingestor.test.ts`: unit tests using a fixture page
+
+## Part 2: Lifecycle signal detection
+
+### The problem
+
+Once a class action from ClassActions.com.au becomes a tracked `Case`, its `caseLifecycleStatus` field (one of `Active`, `Pending`, `Settled`, `Dismissed`, `Closed` — the values the case list and filters already use) never updates automatically. If a matter is later reported settled or dismissed, nothing in the pipeline notices.
+
+### Design: propose, don't auto-publish
+
+An earlier design considered writing straight to `caseLifecycleStatus`, or logging the change as a normal `Event` (the model already used for the public case timeline). Both were rejected for the same reason: nothing in this pipeline should change what's shown as fact on the public site based on an automated keyword match against press paraphrasing, without a person confirming it first. This mirrors how the rest of the app already works — a scraped item never becomes a published `Case` directly, it becomes a `CaseCandidate` that a person accepts or rejects.
+
+The `Event` model gained two fields to support this:
+
+- `verificationStatus` (default `"Unverified"`), the same pattern `Source.verificationStatus` already used
+- `suggestedLifecycleStatus`, the status the detector believes the coverage reports
+
+The public case page (`GET /api/cases/:slug`) now only returns events where `verificationStatus` is `"Verified"`. An automatically-logged event is invisible on the public site until a person confirms it through the review page. This holds even though, today, the person triaging and the person viewing the site are the same user — the point of the gate is the deliberate confirmation step, which is what will matter once those become different people.
+
+### How detection works
+
+`backend/src/detect-lifecycle-signals.ts` (run via `npm run detect-lifecycle-signals`):
+
+1. Fetches the newswire page and extracts the newest item per matter, exactly as Part 1 does.
+2. Looks up which of those matter URLs already appear as a `Source.url` on some `Case` — this is how a newswire matter is matched back to a case you track, using the link that was already stored when the candidate was accepted. No new field was needed for this.
+3. For each matched matter, checks the coverage text for settlement, dismissal, or closure language (`detectLifecycleStage` in `case-ingestor.ts`).
+4. If the coverage reports a different status than the case currently has, and no event has already been logged for that case on that date, logs a new `Event` with `verificationStatus: "Unverified"` and `suggestedLifecycleStatus` set to the detected status.
+
+The planning step (deciding which updates to propose) is a pure function, `planLifecycleSignalUpdates` in `backend/src/lifecycle-signals.ts`, kept separate from the database reads and writes so it can be unit tested directly (`backend/src/lifecycle-signals.test.ts`).
+
+### Review flow
+
+A new admin page, `/admin/lifecycle`, lists unverified events: the case name, its current status, the newswire-detected status, and the triggering coverage text (including a link back to the original article). From there:
+
+- **Confirm and update case** sets the event to `Verified` and applies the (optionally overridden) status to the case, via `POST /api/events/:id/verify`. This is the only place in the codebase where `caseLifecycleStatus` changes as a result of automated detection, and it only happens from this explicit action.
+- **Dismiss** sets the event to `Rejected` via `POST /api/events/:id/dismiss`, without touching the case.
+
+### Key files
+
+- `backend/src/lifecycle-signals.ts` / `.test.ts`: pure planning logic
+- `backend/src/detect-lifecycle-signals.ts`: CLI that fetches the page, queries the database, and writes events
+- `backend/src/index.ts`: `GET /api/events`, `POST /api/events/:id/verify`, `POST /api/events/:id/dismiss`; the events filter on `GET /api/cases/:slug`
+- `frontend/src/app/admin/lifecycle/page.tsx`: the review page
+- `frontend/src/actions/admin.ts`: `getLifecycleEvents`, `verifyLifecycleEvent`, `dismissLifecycleEvent`
+
+## Running it
+
+```
+cd backend
+npm run ingest                      # discover new AI-related class actions (Part 1, among other sources)
+npm run detect-lifecycle-signals    # check tracked matters for reported status changes (Part 2)
+```
+
+Then visit `/admin/lifecycle` to review anything the detector logged.
+
+## Known limitations
+
+- Stage detection is a keyword match ("settlement", "dismissed", "concluded", and close variants) against the article headline and excerpt. It can miss phrasing it doesn't recognize, and it can also be wrong — for example, an article about a proposed settlement that later fell through would still read as "Settled" until a reviewer catches it. This is exactly why confirmation is required rather than automatic.
+- A matter is only matched to a tracked case if that case has a `Source` row whose URL is the same ClassActions.com.au matter page. A case that predates this feature, or was accepted from a different source, will not be matched even if it covers the same matter, unless a `Source` pointing at that matter page is added to it separately.
+- The fedcourt.gov.au class actions list remains unfetched due to its bot challenge; it was evaluated and explicitly skipped rather than overlooked.
