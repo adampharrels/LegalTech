@@ -252,3 +252,25 @@ test('detectLifecycleStage reads settlement, dismissal, and closure language', (
   assert.equal(detectLifecycleStage('The proceeding has concluded.'), 'Closed');
   assert.equal(detectLifecycleStage('A trial has been listed for next year.'), null);
 });
+
+test('detectLifecycleStage reads a failed settlement as Dismissed, not Settled', () => {
+  assert.equal(
+    detectLifecycleStage('The proposed settlement was thrown out and the case was dismissed.'),
+    'Dismissed'
+  );
+  assert.equal(
+    detectLifecycleStage('The court rejected the settlement reached by the parties.'),
+    'Dismissed'
+  );
+  assert.equal(
+    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
+    'Dismissed'
+  );
+});
+
+test('detectLifecycleStage does not let an unrelated dismissal in a later sentence override a real settlement', () => {
+  assert.equal(
+    detectLifecycleStage('The parties have reached a settlement. The court separately dismissed an unrelated motion.'),
+    'Settled'
+  );
+});

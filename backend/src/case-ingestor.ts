@@ -448,6 +448,12 @@ export function latestNewswireItemsByMatter(items: NewswireItem[], pageUrl: stri
 }
 
 const LIFECYCLE_STAGE_PATTERNS: Array<[RegExp, string]> = [
+  // A settlement that later failed reads as a dismissal, not a completed
+  // settlement - check both orderings of "settlement ... failure word" within
+  // the same sentence before the plain settlement pattern below, so a report
+  // like "the settlement was thrown out" isn't misread as Settled.
+  [/\bsettlement\b[^.]{0,60}\b(rejected|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed)\b/i, 'Dismissed'],
+  [/\b(rejected|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed)\b[^.]{0,60}\bsettlement\b/i, 'Dismissed'],
   [/\bsettlement\b|\bsettled\b/i, 'Settled'],
   [/\bdismissed\b|\bdiscontinued\b|\bstruck out\b/i, 'Dismissed'],
   [/\bconcluded\b|\bfinalised\b|\bfinalized\b|\bproceeding has (ended|concluded)\b/i, 'Closed'],
