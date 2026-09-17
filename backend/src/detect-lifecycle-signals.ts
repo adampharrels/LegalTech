@@ -53,19 +53,45 @@ async function main() {
     console.log(`Checked ${trackedMatters.length} tracked matter(s); found ${updates.length} possible lifecycle change(s).`);
 
     let logged = 0;
+    let updated = 0;
     let skipped = 0;
 
+    // At most one unverified lifecycle event is kept per case at a time. If a
+    // case already has one pending review and a later run detects a further
+    // change (e.g. an in-principle settlement that later fell through), the
+    // pending event is updated in place with the newest coverage rather than
+    // left stale alongside a second, possibly contradictory, event.
     for (const update of updates) {
-      const alreadyLogged = await prisma.event.findFirst({
+      const pendingEvent = await prisma.event.findFirst({
         where: {
           caseId: update.caseId,
           eventType: LIFECYCLE_EVENT_TYPE,
-          eventDate: update.eventDate,
+          verificationStatus: 'Unverified',
         },
       });
 
-      if (alreadyLogged) {
-        skipped++;
+      if (pendingEvent) {
+        const isUnchanged = pendingEvent.suggestedLifecycleStatus === update.detectedStatus
+          && pendingEvent.eventDate.getTime() === update.eventDate.getTime();
+
+        if (isUnchanged) {
+          skipped++;
+          continue;
+        }
+
+        await prisma.event.update({
+          where: { id: pendingEvent.id },
+          data: {
+            eventDate: update.eventDate,
+            title: update.title,
+            description: update.description,
+            sourceId: update.sourceId,
+            suggestedLifecycleStatus: update.detectedStatus,
+          },
+        });
+
+        updated++;
+        console.log(`   Updated pending event for case ${update.caseId}: now suggests ${update.detectedStatus}`);
         continue;
       }
 
@@ -89,7 +115,8 @@ async function main() {
     console.log('\n' + '='.repeat(60));
     console.log('Lifecycle Signal Detection Complete:');
     console.log(`   New unverified events logged: ${logged}`);
-    console.log(`   Already logged, skipped: ${skipped}`);
+    console.log(`   Pending events updated with newer coverage: ${updated}`);
+    console.log(`   Unchanged, skipped: ${skipped}`);
     console.log('='.repeat(60) + '\n');
   } catch (error) {
     console.error('Fatal error:', error);
