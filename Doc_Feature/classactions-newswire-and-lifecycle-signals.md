@@ -91,6 +91,7 @@ Then visit `/admin/lifecycle` to review anything the detector logged.
 
 ## Known limitations
 
-- Stage detection is a keyword match ("settlement", "dismissed", "concluded", and close variants) against the article headline and excerpt. It can miss phrasing it doesn't recognize, and it can also be wrong — for example, an article about a proposed settlement that later fell through would still read as "Settled" until a reviewer catches it. This is exactly why confirmation is required rather than automatic.
+- Stage detection is a keyword match ("settlement", "dismissed", "concluded", and close variants) against the article headline and excerpt. It handles the common reversal case explicitly (a settlement reported as rejected, thrown out, or fallen through reads as "Dismissed", not "Settled"), but it can still miss phrasing it has no pattern for. This is exactly why confirmation is required rather than automatic.
+- At most one unverified lifecycle event is kept per case at a time. If a case already has a pending event and a later run detects a further change, that event is updated in place with the newest coverage rather than left alongside a second, possibly contradictory one — so the review queue never shows two stale, conflicting suggestions for the same case.
 - A matter is only matched to a tracked case if that case has a `Source` row whose URL is the same ClassActions.com.au matter page. A case that predates this feature, or was accepted from a different source, will not be matched even if it covers the same matter, unless a `Source` pointing at that matter page is added to it separately.
 - The fedcourt.gov.au class actions list remains unfetched due to its bot challenge; it was evaluated and explicitly skipped rather than overlooked.
