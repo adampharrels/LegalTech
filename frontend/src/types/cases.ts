@@ -55,6 +55,18 @@ export type CaseEvent = {
   eventType: string;
   title: string;
   description: string | null;
+  verificationStatus: string;
+  suggestedLifecycleStatus: string | null;
+};
+
+export type LifecycleEvent = CaseEvent & {
+  caseId: string;
+  case: {
+    id: string;
+    slug: string;
+    caseName: string;
+    caseLifecycleStatus: string;
+  };
 };
 
 export type CaseSource = {
