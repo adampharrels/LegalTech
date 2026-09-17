@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, normaliseAiRole } from './llm-processor';
 import type { CaseData } from './case-ingestor';
-import { LIFECYCLE_STAGE_TYPES, coarseStatusForStage, isLifecycleStageType, latestLifecycleStage } from './lifecycle-stages';
+import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, coarseStatusForStage, isLifecycleStageType, latestLifecycleStage } from './lifecycle-stages';
 
 dotenv.config();
 
@@ -919,12 +919,9 @@ app.post('/api/events/:id/dismiss', async (req: Request, res: Response) => {
 app.get('/api/cases/:id/lifecycle-stages', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id);
-    const stages = await prisma.lifecycleStage.findMany({
-      where: { caseId: id },
-      orderBy: { createdAt: 'desc' },
-    });
+    const stages = await prisma.lifecycleStage.findMany({ where: { caseId: id } });
 
-    res.json(stages);
+    res.json(buildLifecycleStageTree(stages));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch lifecycle stages' });
