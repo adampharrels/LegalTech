@@ -752,7 +752,7 @@ export function convertToDBFormat(caseData: CaseData) {
     courtLevel: caseData.courtLevel || sourceLevel(sourceType, caseData.court),
     statusPublic: 'Published',
     statusInternal: 'Active',
-    caseLifecycleStatus: 'Published',
+    caseLifecycleStatus: 'Active',
     reviewStatus: 'LLM analysed',
     aiRelevanceStatus: 'Relevant',
     materialityLevel: 'High',
