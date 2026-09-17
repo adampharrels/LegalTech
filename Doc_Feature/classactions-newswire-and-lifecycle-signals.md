@@ -64,20 +64,47 @@ The public case page (`GET /api/cases/:slug`) now only returns events where `ver
 
 The planning step (deciding which updates to propose) is a pure function, `planLifecycleSignalUpdates` in `backend/src/lifecycle-signals.ts`, kept separate from the database reads and writes so it can be unit tested directly (`backend/src/lifecycle-signals.test.ts`).
 
-### Review flow
-
-A new admin page, `/admin/lifecycle`, lists unverified events: the case name, its current status, the newswire-detected status, and the triggering coverage text (including a link back to the original article). From there:
-
-- **Confirm and update case** sets the event to `Verified` and applies the (optionally overridden) status to the case, via `POST /api/events/:id/verify`. This is the only place in the codebase where `caseLifecycleStatus` changes as a result of automated detection, and it only happens from this explicit action.
-- **Dismiss** sets the event to `Rejected` via `POST /api/events/:id/dismiss`, without touching the case.
-
 ### Key files
 
 - `backend/src/lifecycle-signals.ts` / `.test.ts`: pure planning logic
 - `backend/src/detect-lifecycle-signals.ts`: CLI that fetches the page, queries the database, and writes events
 - `backend/src/index.ts`: `GET /api/events`, `POST /api/events/:id/verify`, `POST /api/events/:id/dismiss`; the events filter on `GET /api/cases/:slug`
-- `frontend/src/app/admin/lifecycle/page.tsx`: the review page
-- `frontend/src/actions/admin.ts`: `getLifecycleEvents`, `verifyLifecycleEvent`, `dismissLifecycleEvent`
+
+## Part 3: The lifecycle stage tree
+
+Confirming a detected event needs somewhere to put the result. Rather than overwriting a single flat status field, a case's procedural history is kept as a dated, branching tree: `Filed → Certified → Trial → Judgment/Settled/Dismissed/Closed`, where a stage can have more than one child - for example a trial branching into a judgment on one path and parallel settlement talks on another, or a judgment branching into an appeal.
+
+### Why not just widen `caseLifecycleStatus`
+
+`Case.caseLifecycleStatus` already has five values (`Active`, `Pending`, `Settled`, `Dismissed`, `Closed`) baked into the filter sidebar, the dashboard's "active cases" count, and the case list badge. Rather than widen that vocabulary everywhere it's read, the new `LifecycleStage` model uses its own fuller vocabulary (`Filed`, `Certified`, `Trial`, `Judgment`, `Settled`, `Dismissed`, `Closed`), and `coarseStatusForStage` (in `backend/src/lifecycle-stages.ts`) maps each fine-grained stage onto the existing five-value field whenever a stage is added. Nothing that already reads `caseLifecycleStatus` needed to change.
+
+### Data model
+
+`LifecycleStage` (one row per stage): `caseId`, an optional `parentId` pointing at another stage on the same case, `status`, `stageDate`, `notes`, and `source` (`"Manual"` or `"Newswire detector"`). `buildLifecycleStageTree` (pure, unit tested in `backend/src/lifecycle-stages.test.ts`) assembles a case's flat rows into the branching structure, newest-created first at every level.
+
+### Two ways a stage gets added
+
+- **Manually**: `POST /api/cases/:id/lifecycle-stages` with `{ parentId, status, stageDate, notes }`. `parentId` can be any existing stage on that case, not just the latest one, which is what makes branches possible.
+- **From a confirmed newswire signal**: `POST /api/events/:id/verify` (see Part 2) now adds a stage instead of writing `caseLifecycleStatus` directly - attached as a child of whichever stage was most recently added, dated to the article's publish date, tagged `source: "Newswire detector"`, with the article excerpt carried over as the stage's notes.
+
+Both paths go through the same table and the same coarse-status mirroring, so the tree doesn't end up with two different notions of "what happened."
+
+### The `/admin/lifecycle` page
+
+Search for a case by name (reuses the existing `GET /api/cases?query=` search). Selecting one shows:
+
+- Any newswire-detected changes for that case still awaiting confirmation, inline, with a status dropdown (pre-filled with the detected guess but editable) and a confirm/dismiss action.
+- The procedural history tree, newest stage first, each node dated, branches shown by indentation.
+- A form to add a stage directly, attached to any existing node via an "Attach after" dropdown (defaults to the latest one).
+
+Below the search box, a global list still shows every unresolved newswire signal across all cases, for working through them without knowing in advance which case they belong to.
+
+### Key files
+
+- `backend/src/lifecycle-stages.ts` / `.test.ts`: `LifecycleStageType` vocabulary, `coarseStatusForStage`, `buildLifecycleStageTree`, `latestLifecycleStage`
+- `backend/src/index.ts`: `GET`/`POST /api/cases/:id/lifecycle-stages`
+- `frontend/src/app/admin/lifecycle/page.tsx`: search, tree rendering, add-stage form, inline confirmation
+- `frontend/src/actions/admin.ts`: `getLifecycleStages`, `addLifecycleStage`
 
 ## Running it
 
@@ -87,7 +114,7 @@ npm run ingest                      # discover new AI-related class actions (Par
 npm run detect-lifecycle-signals    # check tracked matters for reported status changes (Part 2)
 ```
 
-Then visit `/admin/lifecycle` to review anything the detector logged.
+Then visit `/admin/lifecycle`, search for a case, and either confirm what the detector found or add a stage by hand (Part 3).
 
 ## Known limitations
 
