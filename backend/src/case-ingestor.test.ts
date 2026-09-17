@@ -4,8 +4,11 @@ import {
   CaseIngestor,
   convertToCandidateFormat,
   convertToDBFormat,
+  detectLifecycleStage,
   extractClassActionsNewswireCases,
+  extractNewswireItems,
   getMatchedKeywords,
+  latestNewswireItemsByMatter,
   passesKeywordFilter,
   type CaseData,
   type CaseSource,
@@ -175,6 +178,7 @@ function newswireFixture() {
       </section>
       <article class="nw-card">
         <div class="nw-card-date"><time datetime="2026-05-14">14 May 2026</time></div>
+        <a href="https://example-news.test/clearview-trial" class="nw-card-source">Example News</a>
         <h2 class="nw-card-headline">Facial recognition class action heads to Federal Court trial</h2>
         <p class="nw-card-excerpt">The Federal Court will hear claims about Clearview's facial recognition scraping practices.</p>
         <div class="nw-card-matter">Matter: <a href="/matters/clearview-class-action">Clearview Facial Recognition Class Action</a></div>
@@ -223,4 +227,28 @@ test('extractClassActionsNewswireCases respects the limit', () => {
   );
 
   assert.equal(cases.length, 0);
+});
+
+test('extractNewswireItems captures the article source link alongside the matter link', () => {
+  const items = extractNewswireItems(newswireFixture(), 'https://classactions.com.au/newswire');
+  const clearviewTrialItem = items.find((item) => item.headline.startsWith('Facial recognition'));
+
+  assert.equal(clearviewTrialItem?.matterUrl, 'https://classactions.com.au/matters/clearview-class-action');
+  assert.equal(clearviewTrialItem?.articleUrl, 'https://example-news.test/clearview-trial');
+});
+
+test('latestNewswireItemsByMatter keeps only the newest item per matter, in feed order', () => {
+  const items = extractNewswireItems(newswireFixture(), 'https://classactions.com.au/newswire');
+  const latest = latestNewswireItemsByMatter(items, 'https://classactions.com.au/newswire');
+
+  assert.equal(latest.size, 3);
+  const clearview = latest.get('https://classactions.com.au/matters/clearview-class-action');
+  assert.equal(clearview?.headline, 'Facial recognition class action heads to Federal Court trial');
+});
+
+test('detectLifecycleStage reads settlement, dismissal, and closure language', () => {
+  assert.equal(detectLifecycleStage('The parties have reached a settlement.'), 'Settled');
+  assert.equal(detectLifecycleStage('The claim was dismissed by the court.'), 'Dismissed');
+  assert.equal(detectLifecycleStage('The proceeding has concluded.'), 'Closed');
+  assert.equal(detectLifecycleStage('A trial has been listed for next year.'), null);
 });

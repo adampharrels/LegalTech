@@ -355,18 +355,19 @@ class HtmlLegalSignalSource implements CaseSource {
   }
 }
 
-interface NewswireItem {
+export interface NewswireItem {
   headline: string;
   excerpt: string;
   matterName: string | null;
   matterUrl: string | null;
+  articleUrl: string | null;
   publishedDate: Date;
 }
 
 function readNewswireCard(
   $card: cheerio.Cheerio<any>,
   pageUrl: string,
-  selectors: { headline: string; excerpt: string; matter: string; date: string }
+  selectors: { headline: string; excerpt: string; matter: string; date: string; source: string }
 ): NewswireItem | null {
   const headline = cleanText($card.find(selectors.headline).first().text());
   if (!headline) {
@@ -378,6 +379,7 @@ function readNewswireCard(
   const matterName = matterAnchor.length ? cleanText(matterAnchor.text()) : null;
   const matterHref = matterAnchor.attr('href');
   const matterUrl = matterHref ? makeAbsoluteUrl(pageUrl, matterHref) : null;
+  const articleUrl = $card.find(selectors.source).first().attr('href') || null;
   const dateAttr = $card.find(selectors.date).first().attr('datetime');
   const publishedDate = dateAttr ? new Date(dateAttr) : extractDate(`${headline} ${excerpt}`);
 
@@ -386,22 +388,17 @@ function readNewswireCard(
     excerpt,
     matterName,
     matterUrl,
+    articleUrl,
     publishedDate: Number.isNaN(publishedDate.getTime()) ? new Date() : publishedDate,
   };
 }
 
 /**
- * Parse ClassActions.com.au's newswire page into per-matter signals.
- * Each matter can be reported on by many press articles; only the newest
- * (first-seen, since the feed is newest-first) mention of a given matter
- * is kept so the triage queue gets one candidate per matter, not one per article.
+ * Parse ClassActions.com.au's newswire page (hero card plus every article.nw-card)
+ * into a flat, newest-first list of items. Used both for discovering new AI-related
+ * matters and for checking whether an already-tracked matter has a reported update.
  */
-export function extractClassActionsNewswireCases(
-  html: string,
-  pageUrl: string,
-  sourceName: string,
-  limit = 25
-): CaseData[] {
+export function extractNewswireItems(html: string, pageUrl: string): NewswireItem[] {
   const $ = cheerio.load(html);
   const items: NewswireItem[] = [];
 
@@ -410,6 +407,7 @@ export function extractClassActionsNewswireCases(
     excerpt: '.nw-hero-excerpt',
     matter: '.nw-hero-matter a',
     date: '.nw-hero-byline time',
+    source: '.nw-hero-source a',
   });
   if (hero) {
     items.push(hero);
@@ -421,24 +419,69 @@ export function extractClassActionsNewswireCases(
       excerpt: '.nw-card-excerpt',
       matter: '.nw-card-matter a',
       date: '.nw-card-date time',
+      source: '.nw-card-source',
     });
     if (card) {
       items.push(card);
     }
   });
 
-  const seenMatters = new Set<string>();
+  return items;
+}
+
+/**
+ * Collapse newswire items down to the newest mention of each matter.
+ * A matter can be covered by dozens of press articles; callers only ever
+ * want the latest one. Items without a matter link are kept individually.
+ */
+export function latestNewswireItemsByMatter(items: NewswireItem[], pageUrl: string): Map<string, NewswireItem> {
+  const latest = new Map<string, NewswireItem>();
+
+  for (const item of items) {
+    const dedupeKey = item.matterUrl || `${pageUrl}#${item.headline}`;
+    if (!latest.has(dedupeKey)) {
+      latest.set(dedupeKey, item);
+    }
+  }
+
+  return latest;
+}
+
+const LIFECYCLE_STAGE_PATTERNS: Array<[RegExp, string]> = [
+  [/\bsettlement\b|\bsettled\b/i, 'Settled'],
+  [/\bdismissed\b|\bdiscontinued\b|\bstruck out\b/i, 'Dismissed'],
+  [/\bconcluded\b|\bfinalised\b|\bfinalized\b|\bproceeding has (ended|concluded)\b/i, 'Closed'],
+];
+
+/**
+ * Best-effort read of whether a piece of newswire coverage reports a class
+ * action reaching one of the terminal lifecycle stages tracked on Case
+ * (Settled, Dismissed, Closed). Returns null when no such stage is mentioned.
+ */
+export function detectLifecycleStage(text: string): string | null {
+  for (const [pattern, status] of LIFECYCLE_STAGE_PATTERNS) {
+    if (pattern.test(text)) {
+      return status;
+    }
+  }
+
+  return null;
+}
+
+export function extractClassActionsNewswireCases(
+  html: string,
+  pageUrl: string,
+  sourceName: string,
+  limit = 25
+): CaseData[] {
+  const items = extractNewswireItems(html, pageUrl);
+  const latest = latestNewswireItemsByMatter(items, pageUrl);
   const cases: CaseData[] = [];
   const fetchedAt = new Date();
 
-  for (const item of items) {
+  for (const [matterUrl, item] of latest) {
     if (cases.length >= limit) {
       break;
-    }
-
-    const dedupeKey = item.matterUrl || `${pageUrl}#${item.headline}`;
-    if (seenMatters.has(dedupeKey)) {
-      continue;
     }
 
     const signalText = `${item.headline} ${item.excerpt} ${item.matterName || ''}`;
@@ -446,13 +489,11 @@ export function extractClassActionsNewswireCases(
       continue;
     }
 
-    seenMatters.add(dedupeKey);
-
     cases.push({
       caseName: item.matterName || item.headline,
       citation: '',
       court: extractCourtMention(signalText, 'Class action matter (court not specified)'),
-      url: item.matterUrl || pageUrl,
+      url: item.matterUrl || matterUrl,
       year: item.publishedDate.getFullYear(),
       summary: truncate(item.excerpt || null, 700),
       fullText: truncate([item.headline, item.excerpt].filter(Boolean).join('\n\n') || null, 2000),
