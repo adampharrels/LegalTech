@@ -22,6 +22,8 @@ const materialityScoreByLevel: Record<string, number> = {
 
 const sourceVerificationStatuses = ['Unverified', 'Verified', 'Needs checking', 'Broken'] as const;
 const sourceConfidenceLevels = ['Official court source', 'Official regulator publication', 'Court-adjacent source', 'Secondary source', 'Unknown'] as const;
+const eventVerificationStatuses = ['Unverified', 'Verified', 'Rejected'] as const;
+const caseLifecycleStatuses = ['Active', 'Pending', 'Settled', 'Dismissed', 'Closed'] as const;
 
 function normaliseMaterialityLevel(value: unknown) {
   const level = String(value || 'Low');
@@ -36,6 +38,16 @@ function scoreFromMateriality(value: unknown) {
 function normaliseSourceVerificationStatus(value: unknown) {
   const status = String(value || 'Unverified');
   return sourceVerificationStatuses.includes(status as typeof sourceVerificationStatuses[number]) ? status : 'Unverified';
+}
+
+function normaliseEventVerificationStatus(value: unknown) {
+  const status = String(value || 'Unverified');
+  return eventVerificationStatuses.includes(status as typeof eventVerificationStatuses[number]) ? status : 'Unverified';
+}
+
+function normaliseCaseLifecycleStatus(value: unknown, fallback: string) {
+  const status = String(value || '');
+  return caseLifecycleStatuses.includes(status as typeof caseLifecycleStatuses[number]) ? status : fallback;
 }
 
 function normaliseSourceConfidence(value: unknown) {
@@ -485,7 +497,7 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
         parties: true,
         issues: { include: { issue: true } },
         legalAreas: { include: { legalArea: true } },
-        events: { orderBy: { eventDate: 'desc' } },
+        events: { where: { verificationStatus: 'Verified' }, orderBy: { eventDate: 'desc' } },
         sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
         llmAnalyses: { orderBy: { createdAt: 'desc' }, take: 5 },
         relatedTo: { include: { relatedCase: true } },
@@ -816,6 +828,82 @@ app.post('/api/sources/:id/verification', async (req: Request, res: Response) =>
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to update source verification' });
+  }
+});
+
+// === GET LIFECYCLE / TIMELINE EVENTS ===
+app.get('/api/events', async (req: Request, res: Response) => {
+  try {
+    const verificationStatus = req.query.verificationStatus;
+    const where = verificationStatus
+      ? { verificationStatus: { in: String(verificationStatus).split(',') } }
+      : {};
+
+    const events = await prisma.event.findMany({
+      where,
+      orderBy: { eventDate: 'desc' },
+      include: {
+        case: { select: { id: true, slug: true, caseName: true, caseLifecycleStatus: true } },
+      },
+    });
+
+    res.json(events);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
+
+// === VERIFY A REPORTED LIFECYCLE EVENT ===
+// Confirms an auto-detected event and applies its (optionally overridden)
+// lifecycle status to the case. This is the only place caseLifecycleStatus
+// changes as a result of automated newswire detection - always by a human
+// clicking confirm, never by the detector itself.
+app.post('/api/events/:id/verify', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const { lifecycleStatus } = req.body;
+
+    const event = await prisma.event.findUnique({ where: { id }, include: { case: true } });
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const nextLifecycleStatus = normaliseCaseLifecycleStatus(
+      lifecycleStatus ?? event.suggestedLifecycleStatus,
+      event.case.caseLifecycleStatus
+    );
+
+    const [updatedEvent, updatedCase] = await prisma.$transaction([
+      prisma.event.update({ where: { id }, data: { verificationStatus: 'Verified' } }),
+      prisma.case.update({ where: { id: event.caseId }, data: { caseLifecycleStatus: nextLifecycleStatus } }),
+    ]);
+
+    res.json({ event: updatedEvent, case: updatedCase });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to verify event' });
+  }
+});
+
+// === DISMISS A REPORTED LIFECYCLE EVENT ===
+app.post('/api/events/:id/dismiss', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: { verificationStatus: normaliseEventVerificationStatus('Rejected') },
+    });
+
+    res.json({ event: updatedEvent });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to dismiss event' });
   }
 });
 
