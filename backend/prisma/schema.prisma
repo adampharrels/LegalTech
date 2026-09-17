@@ -132,14 +132,18 @@ model CaseLegalArea {
 }
 
 model Event {
-  id          String   @id @default(uuid())
-  caseId      String
-  eventDate   DateTime
-  eventType   String
-  title       String
-  description String?
-  sourceId    String?
-  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id                       String   @id @default(uuid())
+  caseId                   String
+  eventDate                DateTime
+  eventType                String
+  title                    String
+  description              String?
+  sourceId                 String?
+  verificationStatus       String   @default("Unverified")
+  suggestedLifecycleStatus String?
+  case                     Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus])
 }
 
 model Source {
