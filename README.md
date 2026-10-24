@@ -112,8 +112,6 @@ Current ingestion adapters include:
 
 - `backend/`: Express API server, route handlers, and Prisma schema (`schema.prisma`), migrations, and seed scripts.
 - `frontend/`: Next.js application (`src/app`), React components (`src/components`), Server Actions (`src/actions`), and styling.
-- `DEVELOPMENT.md`: Detailed development guide, API testing instructions, and Git workflows.
-- `implementation_plan.md`: Technical design, data schema, and phased execution roadmap.
 
 ## License
 
