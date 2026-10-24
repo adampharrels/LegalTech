@@ -110,10 +110,6 @@ export function getMatchedKeywords(caseData: CaseData): string[] {
     .map(({ label }) => label);
 }
 
-export function passesKeywordFilter(caseData: CaseData): boolean {
-  return getMatchedKeywords(caseData).length > 0;
-}
-
 function cleanText(value: unknown) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -774,42 +770,6 @@ export class CaseIngestor {
 
     return allCases;
   }
-}
-
-/**
- * Convert case data to database format.
- */
-export function convertToDBFormat(caseData: CaseData) {
-  const slug = caseData.caseName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 100);
-
-  const sourceType = caseData.sourceType || 'Court record';
-
-  return {
-    slug,
-    caseName: caseData.caseName,
-    neutralCitation: caseData.citation,
-    jurisdiction: caseData.jurisdiction || 'Australia',
-    country: caseData.country || 'Australia',
-    courtName: caseData.court,
-    courtLevel: caseData.courtLevel || sourceLevel(sourceType, caseData.court),
-    statusPublic: 'Published',
-    statusInternal: 'Active',
-    caseLifecycleStatus: 'Active',
-    reviewStatus: 'LLM analysed',
-    aiRelevanceStatus: 'Relevant',
-    materialityLevel: 'High',
-    materialityScore: '7',
-    materialityScoreValue: 7,
-    filingDate: caseData.publishedDate,
-    summaryShort: caseData.summary ? caseData.summary.substring(0, 200) : 'Australian legal signal',
-    summaryLong: caseData.summary || caseData.fullText || 'Australian legal signal',
-    whyItMatters: 'Recent legal signal from official Australian sources',
-    isAiRelated: true,
-  };
 }
 
 /**

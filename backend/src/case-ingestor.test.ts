@@ -3,13 +3,11 @@ import test from 'node:test';
 import {
   CaseIngestor,
   convertToCandidateFormat,
-  convertToDBFormat,
   detectLifecycleStage,
   extractClassActionsNewswireCases,
   extractNewswireItems,
   getMatchedKeywords,
   latestNewswireItemsByMatter,
-  passesKeywordFilter,
   type CaseData,
   type CaseSource,
 } from './case-ingestor';
@@ -29,16 +27,10 @@ function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   };
 }
 
-test('passesKeywordFilter detects AI-related terms across case text', () => {
-  assert.equal(passesKeywordFilter(makeCaseData()), true);
-  assert.equal(
-    passesKeywordFilter(makeCaseData({ summary: null, fullText: 'The pleadings refer to ChatGPT outputs.' })),
-    true
-  );
-  assert.equal(
-    passesKeywordFilter(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })),
-    true
-  );
+test('getMatchedKeywords detects AI-related terms across case text', () => {
+  assert.ok(getMatchedKeywords(makeCaseData()).length > 0);
+  assert.ok(getMatchedKeywords(makeCaseData({ summary: null, fullText: 'The pleadings refer to ChatGPT outputs.' })).length > 0);
+  assert.ok(getMatchedKeywords(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })).length > 0);
 });
 
 test('getMatchedKeywords returns readable evidence labels', () => {
@@ -51,8 +43,8 @@ test('getMatchedKeywords returns readable evidence labels', () => {
   assert.deepEqual(matchedKeywords, ['automated system', 'facial recognition', 'biometric']);
 });
 
-test('passesKeywordFilter rejects unrelated cases', () => {
-  const result = passesKeywordFilter(
+test('getMatchedKeywords finds nothing in unrelated cases', () => {
+  const result = getMatchedKeywords(
     makeCaseData({
       caseName: 'Example Pty Ltd v Council',
       summary: 'A planning dispute about zoning approvals.',
@@ -60,31 +52,7 @@ test('passesKeywordFilter rejects unrelated cases', () => {
     })
   );
 
-  assert.equal(result, false);
-});
-
-test('convertToDBFormat maps source data into a stable case record shape', () => {
-  const converted = convertToDBFormat(makeCaseData());
-
-  assert.equal(converted.slug, 'example-pty-ltd-v-platform-inc-2026-fca-123');
-  assert.equal(converted.caseName, 'Example Pty Ltd v Platform Inc [2026] FCA 123');
-  assert.equal(converted.neutralCitation, '[2026] FCA 123');
-  assert.equal(converted.jurisdiction, 'Australia');
-  assert.equal(converted.country, 'Australia');
-  assert.equal(converted.courtLevel, 'Federal');
-  assert.equal(converted.statusPublic, 'Published');
-  assert.equal(converted.filingDate.toISOString(), '2026-03-15T00:00:00.000Z');
-});
-
-test('convertToDBFormat truncates long generated slugs', () => {
-  const converted = convertToDBFormat(
-    makeCaseData({
-      caseName:
-        'A Very Long Case Name With Many Parties And Additional Procedural Descriptors That Should Not Produce An Unbounded Slug',
-    })
-  );
-
-  assert.equal(converted.slug.length, 100);
+  assert.deepEqual(result, []);
 });
 
 test('convertToCandidateFormat maps ingested cases into triage candidates', () => {
