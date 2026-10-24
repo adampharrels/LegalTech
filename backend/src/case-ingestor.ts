@@ -6,6 +6,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import Parser from 'rss-parser';
+import type { LifecycleStageType } from './lifecycle-stages';
 
 export interface CaseSource {
   name: string;
@@ -107,10 +108,6 @@ export function getMatchedKeywords(caseData: CaseData): string[] {
   return AI_SIGNAL_PATTERNS
     .filter(({ pattern }) => pattern.test(textToSearch))
     .map(({ label }) => label);
-}
-
-export function passesKeywordFilter(caseData: CaseData): boolean {
-  return getMatchedKeywords(caseData).length > 0;
 }
 
 function cleanText(value: unknown) {
@@ -447,27 +444,82 @@ export function latestNewswireItemsByMatter(items: NewswireItem[], pageUrl: stri
   return latest;
 }
 
-const LIFECYCLE_STAGE_PATTERNS: Array<[RegExp, string]> = [
-  // A settlement that later failed reads as a dismissal, not a completed
-  // settlement - check both orderings of "settlement ... failure word" within
-  // the same sentence before the plain settlement pattern below, so a report
-  // like "the settlement was thrown out" isn't misread as Settled.
-  [/\bsettlement\b[^.]{0,60}\b(rejected|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed)\b/i, 'Dismissed'],
-  [/\b(rejected|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed)\b[^.]{0,60}\bsettlement\b/i, 'Dismissed'],
-  [/\bsettlement\b|\bsettled\b/i, 'Settled'],
-  [/\bdismissed\b|\bdiscontinued\b|\bstruck out\b/i, 'Dismissed'],
-  [/\bconcluded\b|\bfinalised\b|\bfinalized\b|\bproceeding has (ended|concluded)\b/i, 'Closed'],
+// Words that name the proceeding itself, as opposed to a step within it.
+const PROCEEDING = String.raw`(?:class actions?|proceedings?|claims?|case|lawsuits?|suits?|actions?)`;
+// A dismissed appeal, application, or motion is a step inside a case that
+// usually carries on (and is often a win for the applicants), so a sentence
+// about one never counts as the case itself being dismissed.
+const INTERLOCUTORY_STEP = /\b(appeals?|applications?|motions?|bids?|challenges?|objections?)\b/i;
+// Words that start a new clause. A failure word after one of these is about
+// something else: "reached a settlement after the appeal was dismissed".
+// "and" only counts when a new subject follows it, so "the settlement and
+// distribution scheme was rejected" is still one phrase.
+const CLAUSE_BREAK = String.raw`(?:after|before|but|when|while|although|though|because|since|once|and(?=\s+(?:the|a|an|its|their|his|her|it|they)\b))`;
+// "the settlement of the class action was dismissed" is about the settlement.
+// The optional "class" stops the match restarting at "action" inside "class action".
+const NOT_AFTER_SETTLEMENT = String.raw`(?<!\bsettlements?\s+(?:of|in|for)\s+(?:the\s+|a\s+|an\s+)?(?:class\s+)?)`;
+// "has not settled", "yet to be settled", "no settlement has been reached".
+const SETTLEMENT_NEGATION = /\b(not|yet to|never|unable to|no)\b[^.]{0,25}\bsettle/i;
+// Steps that can "conclude" or "close" without the proceeding ending:
+// "the trial concluded", "registration for the class action has closed".
+const NOT_A_CLOSURE = /\b(hearings?|trials?|submissions?|evidence|mediation|cross-examination|registrations?|opt-outs?|book-?builds?|sign-?ups?|deadlines?)\b/i;
+
+type LifecycleRule = { status: LifecycleStageType; matches: (sentence: string) => boolean };
+
+// Checked in order against every sentence; the first rule that matches any
+// sentence wins. Each rule only looks within one sentence, so an unrelated
+// clause elsewhere in the coverage can't combine with it.
+const LIFECYCLE_RULES: LifecycleRule[] = [
+  {
+    status: 'Dismissed',
+    matches: (sentence) => !INTERLOCUTORY_STEP.test(sentence) && (
+      // The proceeding, then up to four words (never "settlement"), then the
+      // verb: "the class action against Clearview AI was dismissed".
+      new RegExp(String.raw`${NOT_AFTER_SETTLEMENT}\b${PROCEEDING}\s+(?:(?!settlement\b)[\w'-]+\s+){0,4}?(?:was|were|has been|have been|is|been)\s+(?:dismissed|discontinued|struck out|thrown out)\b`, 'i').test(sentence)
+      // "dismissed the class action", but not "dismissed the proposed class
+      // action settlement" - that is the settlement failing, not the case.
+      || new RegExp(String.raw`\b(?:dismissed|discontinued|struck out|threw out)\s+(?:the|a|an|its|their)\s+(?:(?!settlements?\b)[\w-]+\s+){0,3}${PROCEEDING}\b(?!\s+settlement\b)`, 'i').test(sentence)
+    ),
+  },
+  {
+    // Checked before Settled so "the settlement was thrown out" isn't read as
+    // a completed settlement. Maps to Active: the case goes back to being
+    // litigated, it hasn't been dismissed.
+    status: 'Settlement failed',
+    // The failure has to be about the settlement itself, so both patterns
+    // only allow a few words between them and never cross into a new clause.
+    matches: (sentence) => (
+      // "the in-principle settlement fell through", "settlement talks failed"
+      new RegExp(String.raw`\bsettlement\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?(?:(?:was|were|has|have|had|is)\s+)?(?:been\s+)?(?:rejected|refused|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed|fail(?:s|ed)?)\b`, 'i').test(sentence)
+      // "the court rejected the settlement", "failed to reach a settlement"
+      || new RegExp(String.raw`\b(?:rejected|refused|threw out|dismissed|abandoned|fail(?:s|ed)? to (?:reach|agree|finali[sz]e|approve))\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?settlement\b`, 'i').test(sentence)
+    ),
+  },
+  {
+    // A settlement has to be reached, agreed, or approved - talks,
+    // negotiations, or mediation alone don't count.
+    status: 'Settled',
+    matches: (sentence) => !SETTLEMENT_NEGATION.test(sentence) && /\bsettled\b|\bin-principle settlement\b|\bsettlement\b[^.]{0,40}\b(approved|reached|agreed|finali[sz]ed|signed)\b|\b(reach(es|ed)?|agree[sd]?|approv(es|ed)|announc(es|ed)|finali[sz](es|ed))\b[^.]{0,40}\bsettlement\b/i.test(sentence),
+  },
+  {
+    // The proceeding itself has to have ended - see NOT_A_CLOSURE.
+    status: 'Closed',
+    matches: (sentence) => !NOT_A_CLOSURE.test(sentence) && new RegExp(String.raw`\b(?:${PROCEEDING}|matter)\b[^.]{0,30}\b(?:has|have|was|were|is)?\s*(?:ended|concluded|closed|finali[sz]ed)\b`, 'i').test(sentence),
+  },
 ];
 
 /**
  * Best-effort read of whether a piece of newswire coverage reports a class
- * action reaching one of the terminal lifecycle stages tracked on Case
- * (Settled, Dismissed, Closed). Returns null when no such stage is mentioned.
+ * action reaching a stage worth proposing as a status change: settled,
+ * dismissed, closed, or a settlement falling through. Returns null when no
+ * such stage is mentioned. A human always confirms the result.
  */
-export function detectLifecycleStage(text: string): string | null {
-  for (const [pattern, status] of LIFECYCLE_STAGE_PATTERNS) {
-    if (pattern.test(text)) {
-      return status;
+export function detectLifecycleStage(text: string): LifecycleStageType | null {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+
+  for (const rule of LIFECYCLE_RULES) {
+    if (sentences.some((sentence) => rule.matches(sentence))) {
+      return rule.status;
     }
   }
 
@@ -734,42 +786,6 @@ export class CaseIngestor {
 
     return allCases;
   }
-}
-
-/**
- * Convert case data to database format.
- */
-export function convertToDBFormat(caseData: CaseData) {
-  const slug = caseData.caseName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 100);
-
-  const sourceType = caseData.sourceType || 'Court record';
-
-  return {
-    slug,
-    caseName: caseData.caseName,
-    neutralCitation: caseData.citation,
-    jurisdiction: caseData.jurisdiction || 'Australia',
-    country: caseData.country || 'Australia',
-    courtName: caseData.court,
-    courtLevel: caseData.courtLevel || sourceLevel(sourceType, caseData.court),
-    statusPublic: 'Published',
-    statusInternal: 'Active',
-    caseLifecycleStatus: 'Active',
-    reviewStatus: 'LLM analysed',
-    aiRelevanceStatus: 'Relevant',
-    materialityLevel: 'High',
-    materialityScore: '7',
-    materialityScoreValue: 7,
-    filingDate: caseData.publishedDate,
-    summaryShort: caseData.summary ? caseData.summary.substring(0, 200) : 'Australian legal signal',
-    summaryLong: caseData.summary || caseData.fullText || 'Australian legal signal',
-    whyItMatters: 'Recent legal signal from official Australian sources',
-    isAiRelated: true,
-  };
 }
 
 /**

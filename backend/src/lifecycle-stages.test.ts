@@ -3,8 +3,11 @@ import test from 'node:test';
 import {
   buildLifecycleStageTree,
   coarseStatusForStage,
+  coarseStatusForStages,
+  isEarlierStageDay,
   isLifecycleStageType,
   latestLifecycleStage,
+  parseStageDate,
   type LifecycleStageRecord,
 } from './lifecycle-stages';
 
@@ -33,6 +36,8 @@ test('coarseStatusForStage maps the fine-grained stage onto the existing five-va
   assert.equal(coarseStatusForStage('Certified'), 'Active');
   assert.equal(coarseStatusForStage('Trial'), 'Active');
   assert.equal(coarseStatusForStage('Judgment'), 'Active');
+  assert.equal(coarseStatusForStage('Appeal'), 'Active');
+  assert.equal(coarseStatusForStage('Settlement failed'), 'Active');
   assert.equal(coarseStatusForStage('Settled'), 'Settled');
   assert.equal(coarseStatusForStage('Dismissed'), 'Dismissed');
   assert.equal(coarseStatusForStage('Closed'), 'Closed');
@@ -64,7 +69,7 @@ test('buildLifecycleStageTree branches when two stages share a parent', () => {
 
   assert.equal(tree.length, 1);
   assert.equal(tree[0]?.children.length, 2);
-  // Newest-created branch first.
+  // Same stage date, so the newest-entered branch comes first.
   assert.equal(tree[0]?.children[0]?.id, 'settlement-talks');
   assert.equal(tree[0]?.children[1]?.id, 'judgment');
 });
@@ -78,7 +83,7 @@ test('buildLifecycleStageTree treats a dangling parentId as a root, rather than 
   assert.equal(tree[0]?.id, 'orphan');
 });
 
-test('latestLifecycleStage returns the most recently created stage across all branches', () => {
+test('latestLifecycleStage falls back to entry order for stages on the same date', () => {
   const stages = [
     makeStage({ id: 'trial', status: 'Trial', createdAt: new Date('2026-02-14') }),
     makeStage({ id: 'judgment', parentId: 'trial', status: 'Judgment', createdAt: new Date('2026-05-18') }),
@@ -87,4 +92,66 @@ test('latestLifecycleStage returns the most recently created stage across all br
 
   assert.equal(latestLifecycleStage(stages)?.id, 'settlement-talks');
   assert.equal(latestLifecycleStage([]), null);
+});
+
+test('buildLifecycleStageTree orders by stage date, so a back-filled older stage is not shown as newest', () => {
+  const stages = [
+    makeStage({ id: 'settled', status: 'Settled', stageDate: new Date('2026-01-10'), createdAt: new Date('2026-01-10') }),
+    makeStage({ id: 'filed', status: 'Filed', stageDate: new Date('2023-04-02'), createdAt: new Date('2026-02-01') }),
+  ];
+
+  const tree = buildLifecycleStageTree(stages);
+
+  assert.equal(tree[0]?.id, 'settled');
+  assert.equal(tree[1]?.id, 'filed');
+});
+
+test('latestLifecycleStage picks the latest stage date, not the latest entry', () => {
+  const stages = [
+    makeStage({ id: 'settled', status: 'Settled', stageDate: new Date('2026-01-10'), createdAt: new Date('2026-01-10') }),
+    makeStage({ id: 'filed', status: 'Filed', stageDate: new Date('2023-04-02'), createdAt: new Date('2026-02-01') }),
+  ];
+
+  assert.equal(latestLifecycleStage(stages)?.id, 'settled');
+});
+
+test('latestLifecycleStage with onOrBefore only considers stages that do not post-date it', () => {
+  const stages = [
+    makeStage({ id: 'filed', status: 'Filed', stageDate: new Date('2024-01-01') }),
+    makeStage({ id: 'trial', parentId: 'filed', status: 'Trial', stageDate: new Date('2025-06-01') }),
+  ];
+
+  assert.equal(latestLifecycleStage(stages, new Date('2025-01-01'))?.id, 'filed');
+  assert.equal(latestLifecycleStage(stages, new Date('2025-06-01'))?.id, 'trial');
+  assert.equal(latestLifecycleStage(stages, new Date('2023-01-01')), null);
+});
+
+test('coarseStatusForStages mirrors the latest-dated stage, and is null with no stages', () => {
+  const stages = [
+    makeStage({ id: 'settled', status: 'Settled', stageDate: new Date('2026-01-10'), createdAt: new Date('2026-01-10') }),
+    makeStage({ id: 'filed', status: 'Filed', stageDate: new Date('2023-04-02'), createdAt: new Date('2026-02-01') }),
+  ];
+
+  assert.equal(coarseStatusForStages(stages), 'Settled');
+  assert.equal(coarseStatusForStages([...stages, makeStage({ id: 'failed', status: 'Settlement failed', stageDate: new Date('2026-03-01') })]), 'Active');
+  assert.equal(coarseStatusForStages([]), null);
+});
+
+test('stage dates compare by local day, so a same-day manual stage follows a timestamped newswire stage', () => {
+  // Built from local date parts so the test holds in any server time zone.
+  const newswire = makeStage({ id: 'newswire', status: 'Settled', stageDate: new Date(2026, 9, 24, 9, 30), createdAt: new Date(2026, 9, 24, 9, 30) });
+  const manual = makeStage({ id: 'manual', parentId: 'newswire', status: 'Closed', stageDate: parseStageDate('2026-10-24'), createdAt: new Date(2026, 9, 24, 15, 0) });
+
+  assert.equal(isEarlierStageDay(manual.stageDate, newswire.stageDate), false);
+  assert.equal(isEarlierStageDay(parseStageDate('2026-10-23'), newswire.stageDate), true);
+  // Same day, so the later-entered manual stage is the latest one.
+  assert.equal(latestLifecycleStage([newswire, manual])?.id, 'manual');
+  assert.equal(coarseStatusForStages([newswire, manual]), 'Closed');
+  assert.equal(latestLifecycleStage([newswire], parseStageDate('2026-10-24'))?.id, 'newswire');
+});
+
+test('parseStageDate reads a date-only value as local midnight', () => {
+  const parsed = parseStageDate('2026-10-24');
+  assert.deepEqual([parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours()], [2026, 9, 24, 0]);
+  assert.equal(parseStageDate('2026-10-24T03:00:00.000Z').toISOString(), '2026-10-24T03:00:00.000Z');
 });
