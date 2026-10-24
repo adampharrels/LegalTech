@@ -19,6 +19,9 @@ export async function getCases(filters?: {
   dateFrom?: string;
   dateTo?: string;
   sort?: string;
+  // Public views pass this so cases the LLM judged not AI-related stay out
+  // of the AI tracker unless an AI relevance filter is chosen explicitly.
+  hideNotRelevant?: boolean;
 }): Promise<CaseSummary[]> {
   const params = new URLSearchParams();
   
@@ -42,6 +45,7 @@ export async function getCases(filters?: {
   appendParam('dateFrom', filters?.dateFrom);
   appendParam('dateTo', filters?.dateTo);
   appendParam('sort', filters?.sort);
+  if (filters?.hideNotRelevant) params.append('hideNotRelevant', 'true');
 
   const url = `${API_URL}/cases${params.toString() ? `?${params.toString()}` : ''}`;
   const response = await fetch(url, { cache: 'no-store' });

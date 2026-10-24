@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import type { CaseCandidate, LifecycleEvent, LifecycleStageNode } from '@/types/cases';
+import type { CaseCandidate, LifecycleEvent, LifecycleStageTree } from '@/types/cases';
 
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
@@ -225,16 +225,16 @@ export async function dismissLifecycleEvent(formData: FormData) {
   revalidatePath('/admin/lifecycle');
 }
 
-export async function getLifecycleStages(caseId: string): Promise<LifecycleStageNode[]> {
+export async function getLifecycleStages(caseId: string): Promise<LifecycleStageTree> {
   const response = await fetch(`${API_URL}/cases/${caseId}/lifecycle-stages`, {
     cache: 'no-store',
   });
 
   if (!response.ok) {
-    return [];
+    return { tree: [], latestStageId: null };
   }
 
-  return response.json() as Promise<LifecycleStageNode[]>;
+  return response.json() as Promise<LifecycleStageTree>;
 }
 
 export async function addLifecycleStage(formData: FormData) {
@@ -253,7 +253,8 @@ export async function addLifecycleStage(formData: FormData) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to add lifecycle stage');
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error || 'Failed to add lifecycle stage');
   }
 
   revalidatePath('/admin/lifecycle');
@@ -290,11 +291,13 @@ export async function createBasicCase(formData: FormData) {
     body: JSON.stringify(payload),
   });
 
-  if (response.ok) {
-    const created = await response.json();
-    revalidatePath('/admin');
-    revalidatePath('/cases');
-    revalidatePath('/dashboard');
-    redirect(`/cases/${created.slug}`);
+  if (!response.ok) {
+    throw new Error('Failed to create case');
   }
+
+  const created = await response.json();
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath('/dashboard');
+  redirect(`/cases/${created.slug}`);
 }

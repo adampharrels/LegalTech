@@ -69,7 +69,18 @@ export type LifecycleEvent = CaseEvent & {
   };
 };
 
-export const LIFECYCLE_STAGE_TYPES = ['Filed', 'Certified', 'Trial', 'Judgment', 'Settled', 'Dismissed', 'Closed'] as const;
+// Keep in sync with LIFECYCLE_STAGE_TYPES in backend/src/lifecycle-stages.ts.
+export const LIFECYCLE_STAGE_TYPES = [
+  'Filed',
+  'Certified',
+  'Trial',
+  'Judgment',
+  'Appeal',
+  'Settlement failed',
+  'Settled',
+  'Dismissed',
+  'Closed',
+] as const;
 
 export type LifecycleStageNode = {
   id: string;
@@ -80,6 +91,11 @@ export type LifecycleStageNode = {
   source: string;
   createdAt: string;
   children: LifecycleStageNode[];
+};
+
+export type LifecycleStageTree = {
+  tree: LifecycleStageNode[];
+  latestStageId: string | null;
 };
 
 export type CaseSource = {
@@ -185,4 +201,5 @@ export type CaseDetail = CaseSummary & {
   llmAnalyses: LlmAnalysis[];
   relatedTo: RelatedCaseLink[];
   relatedFrom: RelatedFromCaseLink[];
+  lifecycleStages: LifecycleStageNode[];
 };

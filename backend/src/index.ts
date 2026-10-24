@@ -1,10 +1,11 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { LLM_MODEL_NAME, LLM_PROMPT_VERSION, analyzeCaseWithLLM, normaliseAiRole } from './llm-processor';
 import type { CaseData } from './case-ingestor';
-import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, coarseStatusForStage, isLifecycleStageType, latestLifecycleStage } from './lifecycle-stages';
+import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, coarseStatusForStages, isLifecycleStageType, latestLifecycleStage } from './lifecycle-stages';
+import { LIFECYCLE_EVENT_TYPE } from './lifecycle-signals';
 
 dotenv.config();
 
@@ -23,7 +24,7 @@ const materialityScoreByLevel: Record<string, number> = {
 
 const sourceVerificationStatuses = ['Unverified', 'Verified', 'Needs checking', 'Broken'] as const;
 const sourceConfidenceLevels = ['Official court source', 'Official regulator publication', 'Court-adjacent source', 'Secondary source', 'Unknown'] as const;
-const eventVerificationStatuses = ['Unverified', 'Verified', 'Rejected'] as const;
+const caseLifecycleStatuses = ['Active', 'Pending', 'Settled', 'Dismissed', 'Closed'] as const;
 
 function normaliseMaterialityLevel(value: unknown) {
   const level = String(value || 'Low');
@@ -40,9 +41,9 @@ function normaliseSourceVerificationStatus(value: unknown) {
   return sourceVerificationStatuses.includes(status as typeof sourceVerificationStatuses[number]) ? status : 'Unverified';
 }
 
-function normaliseEventVerificationStatus(value: unknown) {
-  const status = String(value || 'Unverified');
-  return eventVerificationStatuses.includes(status as typeof eventVerificationStatuses[number]) ? status : 'Unverified';
+function normaliseCaseLifecycleStatus(value: unknown) {
+  const status = String(value || 'Active');
+  return caseLifecycleStatuses.includes(status as typeof caseLifecycleStatuses[number]) ? status : 'Active';
 }
 
 function normaliseSourceConfidence(value: unknown) {
@@ -106,6 +107,16 @@ function normaliseOptionalScore(value: unknown) {
 
 function slugifyCaseName(caseName: string) {
   return caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').substring(0, 100);
+}
+
+// Re-derives Case.caseLifecycleStatus from the case's whole stage tree, so
+// the mirrored status follows the latest-dated stage rather than whichever
+// stage happened to be entered last.
+async function syncCaseLifecycleStatus(tx: Prisma.TransactionClient, caseId: string) {
+  const stages = await tx.lifecycleStage.findMany({ where: { caseId } });
+  const caseLifecycleStatus = coarseStatusForStages(stages);
+
+  return tx.case.update({ where: { id: caseId }, data: caseLifecycleStatus ? { caseLifecycleStatus } : {} });
 }
 
 async function createUniqueCaseSlug(caseName: string) {
@@ -407,7 +418,8 @@ app.get('/api/cases', async (req: Request, res: Response) => {
       aiRelevanceStatus,
       dateFrom,
       dateTo,
-      sort
+      sort,
+      hideNotRelevant
     } = req.query;
     const where: any = {};
     const sortValue = String(sort || 'newest');
@@ -450,6 +462,8 @@ app.get('/api/cases', async (req: Request, res: Response) => {
 
     if (aiRelevanceStatus) {
       where.aiRelevanceStatus = { in: String(aiRelevanceStatus).split(',') };
+    } else if (hideNotRelevant === 'true') {
+      where.aiRelevanceStatus = { not: 'Not relevant' };
     }
 
     if (dateFrom || dateTo) {
@@ -492,11 +506,17 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
         parties: true,
         issues: { include: { issue: true } },
         legalAreas: { include: { legalArea: true } },
-        events: { where: { verificationStatus: 'Verified' }, orderBy: { eventDate: 'desc' } },
+        // Confirmed detector events already live on as stages in the
+        // lifecycle tree below, so they aren't repeated in the timeline.
+        events: {
+          where: { verificationStatus: 'Verified', eventType: { not: LIFECYCLE_EVENT_TYPE } },
+          orderBy: { eventDate: 'desc' },
+        },
         sources: { orderBy: [{ isPrimary: 'desc' }, { publishedAt: 'desc' }] },
         llmAnalyses: { orderBy: { createdAt: 'desc' }, take: 5 },
         relatedTo: { include: { relatedCase: true } },
-        relatedFrom: { include: { case: true } }
+        relatedFrom: { include: { case: true } },
+        lifecycleStages: true,
       }
     });
     
@@ -504,7 +524,7 @@ app.get('/api/cases/:slug', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Not found' });
     }
     
-    res.json(caseData);
+    res.json({ ...caseData, lifecycleStages: buildLifecycleStageTree(caseData.lifecycleStages) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch case' });
@@ -564,9 +584,9 @@ app.post('/api/cases', async (req: Request, res: Response) => {
 
     if (!caseName) return res.status(400).json({ error: 'caseName required' });
 
-    const slug = caseName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = await createUniqueCaseSlug(String(caseName));
     
-    const resolvedLifecycleStatus = caseLifecycleStatus || statusPublic || 'Pending';
+    const resolvedLifecycleStatus = normaliseCaseLifecycleStatus(caseLifecycleStatus || statusPublic);
     const resolvedMaterialityLevel = normaliseMaterialityLevel(materialityLevel || materialityScore);
     const resolvedMaterialityScoreValue = scoreFromMateriality(resolvedMaterialityLevel);
 
@@ -583,7 +603,9 @@ app.post('/api/cases', async (req: Request, res: Response) => {
       statusInternal: 'Review',
       caseLifecycleStatus: resolvedLifecycleStatus,
       reviewStatus: 'Unreviewed',
-      aiRelevanceStatus: 'Unknown',
+      // A case added by hand to an AI litigation tracker is AI-related by
+      // the curator's own judgement; LLM analysis can still revise this.
+      aiRelevanceStatus: 'Relevant',
       materialityLevel: resolvedMaterialityLevel,
       materialityScore: resolvedMaterialityLevel,
       materialityScoreValue: resolvedMaterialityScoreValue,
@@ -591,7 +613,7 @@ app.post('/api/cases', async (req: Request, res: Response) => {
       summaryShort: summaryShort || 'No summary provided.',
       summaryLong: summaryLong || null,
       whyItMatters: whyItMatters || null,
-      isAiRelated: false,
+      isAiRelated: true,
       ...(sourceUrl
         ? {
           sources: {
@@ -851,17 +873,22 @@ app.get('/api/events', async (req: Request, res: Response) => {
 
 // === VERIFY A REPORTED LIFECYCLE EVENT ===
 // Confirms an auto-detected event and adds it to the case's lifecycle stage
-// tree, attached as a child of whichever stage was most recently added. This
-// is the only place a stage gets added as a result of automated newswire
-// detection - always by a human clicking confirm, never by the detector.
+// tree, attached as a child of the latest stage dated on or before the
+// event. This is the only place a stage gets added as a result of automated
+// newswire detection - always by a human clicking confirm, never by the
+// detector.
 app.post('/api/events/:id/verify', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id);
     const { lifecycleStatus } = req.body;
 
-    const event = await prisma.event.findUnique({ where: { id }, include: { case: true } });
+    const event = await prisma.event.findUnique({ where: { id } });
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (event.verificationStatus !== 'Unverified') {
+      return res.status(409).json({ error: `Event has already been reviewed (${event.verificationStatus})` });
     }
 
     const requestedStatus = lifecycleStatus ?? event.suggestedLifecycleStatus;
@@ -869,12 +896,21 @@ app.post('/api/events/:id/verify', async (req: Request, res: Response) => {
       return res.status(400).json({ error: `lifecycleStatus must be one of ${LIFECYCLE_STAGE_TYPES.join(', ')}` });
     }
 
-    const existingStages = await prisma.lifecycleStage.findMany({ where: { caseId: event.caseId } });
-    const parent = latestLifecycleStage(existingStages);
+    const result = await prisma.$transaction(async (tx) => {
+      // Claim the event before adding the stage, so a double submit (or a
+      // dismiss racing a confirm) can't add the stage twice.
+      const claimed = await tx.event.updateMany({
+        where: { id, verificationStatus: 'Unverified' },
+        data: { verificationStatus: 'Verified', title: `Confirmed move to ${requestedStatus}` },
+      });
+      if (claimed.count === 0) {
+        return null;
+      }
 
-    const [updatedEvent, stage, updatedCase] = await prisma.$transaction([
-      prisma.event.update({ where: { id }, data: { verificationStatus: 'Verified' } }),
-      prisma.lifecycleStage.create({
+      const existingStages = await tx.lifecycleStage.findMany({ where: { caseId: event.caseId } });
+      const parent = latestLifecycleStage(existingStages, event.eventDate);
+
+      const stage = await tx.lifecycleStage.create({
         data: {
           caseId: event.caseId,
           parentId: parent?.id ?? null,
@@ -883,11 +919,19 @@ app.post('/api/events/:id/verify', async (req: Request, res: Response) => {
           notes: event.description,
           source: 'Newswire detector',
         },
-      }),
-      prisma.case.update({ where: { id: event.caseId }, data: { caseLifecycleStatus: coarseStatusForStage(requestedStatus) } }),
-    ]);
+      });
 
-    res.json({ event: updatedEvent, stage, case: updatedCase });
+      const updatedCase = await syncCaseLifecycleStatus(tx, event.caseId);
+      const updatedEvent = await tx.event.findUnique({ where: { id } });
+
+      return { event: updatedEvent, stage, case: updatedCase };
+    });
+
+    if (!result) {
+      return res.status(409).json({ error: 'Event has already been reviewed' });
+    }
+
+    res.json(result);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to verify event' });
@@ -903,12 +947,15 @@ app.post('/api/events/:id/dismiss', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const updatedEvent = await prisma.event.update({
-      where: { id },
-      data: { verificationStatus: normaliseEventVerificationStatus('Rejected') },
+    const dismissed = await prisma.event.updateMany({
+      where: { id, verificationStatus: 'Unverified' },
+      data: { verificationStatus: 'Rejected' },
     });
+    if (dismissed.count === 0) {
+      return res.status(409).json({ error: `Event has already been reviewed (${event.verificationStatus})` });
+    }
 
-    res.json({ event: updatedEvent });
+    res.json({ event: await prisma.event.findUnique({ where: { id } }) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to dismiss event' });
@@ -916,12 +963,13 @@ app.post('/api/events/:id/dismiss', async (req: Request, res: Response) => {
 });
 
 // === GET A CASE'S LIFECYCLE STAGE TREE ===
+// latestStageId is the stage a new entry attaches to by default.
 app.get('/api/cases/:id/lifecycle-stages', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id);
     const stages = await prisma.lifecycleStage.findMany({ where: { caseId: id } });
 
-    res.json(buildLifecycleStageTree(stages));
+    res.json({ tree: buildLifecycleStageTree(stages), latestStageId: latestLifecycleStage(stages)?.id ?? null });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch lifecycle stages' });
@@ -957,10 +1005,14 @@ app.post('/api/cases/:id/lifecycle-stages', async (req: Request, res: Response) 
       if (!parentStage || parentStage.caseId !== id) {
         return res.status(400).json({ error: 'parentId must be an existing stage on this case' });
       }
+
+      if (parentStage.stageDate.getTime() > parsedDate.getTime()) {
+        return res.status(400).json({ error: 'stageDate cannot be earlier than the stage it is attached after' });
+      }
     }
 
-    const [stage, updatedCase] = await prisma.$transaction([
-      prisma.lifecycleStage.create({
+    const { stage, updatedCase } = await prisma.$transaction(async (tx) => {
+      const stage = await tx.lifecycleStage.create({
         data: {
           caseId: id,
           parentId: parentId ? String(parentId) : null,
@@ -969,9 +1021,10 @@ app.post('/api/cases/:id/lifecycle-stages', async (req: Request, res: Response) 
           notes: notes ? String(notes) : null,
           source: 'Manual',
         },
-      }),
-      prisma.case.update({ where: { id }, data: { caseLifecycleStatus: coarseStatusForStage(status) } }),
-    ]);
+      });
+
+      return { stage, updatedCase: await syncCaseLifecycleStatus(tx, id) };
+    });
 
     res.status(201).json({ stage, case: updatedCase });
   } catch (error) {

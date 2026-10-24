@@ -2,7 +2,7 @@ import { getCases, getIssues } from '@/actions/cases';
 import { Activity, Globe, Scale, BookOpen } from 'lucide-react';
 
 export default async function DashboardPage() {
-  const cases = await getCases();
+  const cases = await getCases({ hideNotRelevant: true });
   const issuesList = await getIssues();
   
   const totalCases = cases.length;
