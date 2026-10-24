@@ -48,6 +48,7 @@ async function main() {
         caseId: { in: sources.map((source) => source.caseId) },
         eventType: LIFECYCLE_EVENT_TYPE,
       },
+      select: { id: true, caseId: true, verificationStatus: true, suggestedLifecycleStatus: true, description: true },
     });
     const pendingByCase = new Map(
       detectorEvents.filter((event) => event.verificationStatus === 'Unverified').map((event) => [event.caseId, event])

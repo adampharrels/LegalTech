@@ -7,6 +7,7 @@ import {
   isEarlierStageDay,
   isLifecycleStageType,
   latestLifecycleStage,
+  parseStageDate,
   type LifecycleStageRecord,
 } from './lifecycle-stages';
 
@@ -136,14 +137,21 @@ test('coarseStatusForStages mirrors the latest-dated stage, and is null with no 
   assert.equal(coarseStatusForStages([]), null);
 });
 
-test('stage dates compare by day, so a same-day manual stage follows a timestamped newswire stage', () => {
-  const newswire = makeStage({ id: 'newswire', status: 'Settled', stageDate: new Date('2026-10-24T03:00:00.000Z'), createdAt: new Date('2026-10-24T03:00:00.000Z') });
-  const manual = makeStage({ id: 'manual', parentId: 'newswire', status: 'Closed', stageDate: new Date('2026-10-24T00:00:00.000Z'), createdAt: new Date('2026-10-24T09:00:00.000Z') });
+test('stage dates compare by local day, so a same-day manual stage follows a timestamped newswire stage', () => {
+  // Built from local date parts so the test holds in any server time zone.
+  const newswire = makeStage({ id: 'newswire', status: 'Settled', stageDate: new Date(2026, 9, 24, 9, 30), createdAt: new Date(2026, 9, 24, 9, 30) });
+  const manual = makeStage({ id: 'manual', parentId: 'newswire', status: 'Closed', stageDate: parseStageDate('2026-10-24'), createdAt: new Date(2026, 9, 24, 15, 0) });
 
   assert.equal(isEarlierStageDay(manual.stageDate, newswire.stageDate), false);
-  assert.equal(isEarlierStageDay(new Date('2026-10-23T00:00:00.000Z'), newswire.stageDate), true);
+  assert.equal(isEarlierStageDay(parseStageDate('2026-10-23'), newswire.stageDate), true);
   // Same day, so the later-entered manual stage is the latest one.
   assert.equal(latestLifecycleStage([newswire, manual])?.id, 'manual');
   assert.equal(coarseStatusForStages([newswire, manual]), 'Closed');
-  assert.equal(latestLifecycleStage([newswire], new Date('2026-10-24T00:00:00.000Z'))?.id, 'newswire');
+  assert.equal(latestLifecycleStage([newswire], parseStageDate('2026-10-24'))?.id, 'newswire');
+});
+
+test('parseStageDate reads a date-only value as local midnight', () => {
+  const parsed = parseStageDate('2026-10-24');
+  assert.deepEqual([parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), parsed.getHours()], [2026, 9, 24, 0]);
+  assert.equal(parseStageDate('2026-10-24T03:00:00.000Z').toISOString(), '2026-10-24T03:00:00.000Z');
 });

@@ -33,19 +33,19 @@ export interface LifecycleSignalUpdate {
 
 /**
  * A detector event a person has already confirmed or dismissed. The same
- * coverage (same case, article text, and suggested stage) is never proposed
- * again, otherwise a dismissed suggestion would come back on every run.
- * Coverage is identified by its text rather than its date, because a card
- * without a machine-readable date falls back to the time of the run.
+ * article is never proposed again for that case, otherwise a dismissed
+ * suggestion would come back on every run. See coverageIdentity for how an
+ * article is recognised.
  */
 export interface ReviewedSignal {
   caseId: string;
   description: string | null;
-  suggestedLifecycleStatus: string | null;
 }
 
+const REPORTED_BY_PREFIX = 'Reported by: ';
+
 export function describeNewswireItem(item: NewswireItem) {
-  return [item.headline, item.excerpt, item.articleUrl ? `Reported by: ${item.articleUrl}` : null]
+  return [item.headline, item.excerpt, item.articleUrl ? `${REPORTED_BY_PREFIX}${item.articleUrl}` : null]
     .filter(Boolean)
     .join('\n\n');
 }
@@ -56,7 +56,7 @@ export function planLifecycleSignalUpdates(
   reviewedSignals: ReviewedSignal[] = []
 ): LifecycleSignalUpdate[] {
   const trackedByUrl = new Map(trackedMatters.map((matter) => [matter.matterUrl, matter]));
-  const reviewedKeys = new Set(reviewedSignals.map((signal) => signalKey(signal.caseId, signal.description, signal.suggestedLifecycleStatus)));
+  const reviewedKeys = new Set(reviewedSignals.map((signal) => signalKey(signal.caseId, signal.description)));
   const updates: LifecycleSignalUpdate[] = [];
 
   for (const [matterUrl, item] of latestItemsByMatter) {
@@ -80,7 +80,7 @@ export function planLifecycleSignalUpdates(
     }
 
     const description = describeNewswireItem(item);
-    if (reviewedKeys.has(signalKey(tracked.caseId, description, detectedStatus))) {
+    if (reviewedKeys.has(signalKey(tracked.caseId, description))) {
       continue;
     }
 
@@ -98,6 +98,19 @@ export function planLifecycleSignalUpdates(
   return updates;
 }
 
-function signalKey(caseId: string, description: string | null, status: string | null) {
-  return `${caseId}|${status}|${description}`;
+/**
+ * Recognises the same article across runs from a stored event description:
+ * its article link when there is one, otherwise its headline. Not its date
+ * (an undated card falls back to the time of the run), not the excerpt (it
+ * can be lightly edited), and not the detected stage (detection rules can
+ * change, and a reviewed article stays reviewed).
+ */
+export function coverageIdentity(description: string | null) {
+  const paragraphs = (description || '').split('\n\n');
+  const reportedBy = paragraphs.find((paragraph) => paragraph.startsWith(REPORTED_BY_PREFIX));
+  return reportedBy ? reportedBy.slice(REPORTED_BY_PREFIX.length) : paragraphs[0] || '';
+}
+
+function signalKey(caseId: string, description: string | null) {
+  return `${caseId}|${coverageIdentity(description)}`;
 }

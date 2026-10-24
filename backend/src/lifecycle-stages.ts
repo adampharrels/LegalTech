@@ -60,12 +60,23 @@ export interface LifecycleStageNode extends LifecycleStageRecord {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// Stage dates are compared by calendar day (UTC). A manual stage comes from a
-// date-only input (midnight), while a newswire stage carries the article's
-// full timestamp, so comparing raw timestamps would put a stage entered by
-// hand on the same day "before" the newswire stage it follows.
+// Stage dates are compared by local calendar day. A manual stage comes from a
+// date-only input (local midnight), while a newswire stage carries the
+// article's full timestamp, so comparing raw timestamps would put a stage
+// entered by hand on the same day "before" the newswire stage it follows.
+// Local rather than UTC, because an Australian morning is the previous UTC day.
 function stageDay(date: Date) {
-  return Math.floor(date.getTime() / MS_PER_DAY);
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY;
+}
+
+/**
+ * Parse a stage date from a request. A date-only "YYYY-MM-DD" (from a date
+ * input) is local midnight, matching how stage days are compared; anything
+ * else is parsed as given.
+ */
+export function parseStageDate(value: string) {
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return dateOnly ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) : new Date(value);
 }
 
 /** Whether a stage dated `date` would be on an earlier day than `than`. */

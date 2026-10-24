@@ -452,7 +452,12 @@ const PROCEEDING = String.raw`(?:class actions?|proceedings?|claims?|case|lawsui
 const INTERLOCUTORY_STEP = /\b(appeals?|applications?|motions?|bids?|challenges?|objections?)\b/i;
 // Words that start a new clause. A failure word after one of these is about
 // something else: "reached a settlement after the appeal was dismissed".
-const CLAUSE_BREAK = String.raw`(?:after|before|but|when|while|although|though|because|since|and|once)`;
+// "and" only counts when a new subject follows it, so "the settlement and
+// distribution scheme was rejected" is still one phrase.
+const CLAUSE_BREAK = String.raw`(?:after|before|but|when|while|although|though|because|since|once|and(?=\s+(?:the|a|an|its|their|his|her|it|they)\b))`;
+// "the settlement of the class action was dismissed" is about the settlement.
+// The optional "class" stops the match restarting at "action" inside "class action".
+const NOT_AFTER_SETTLEMENT = String.raw`(?<!\bsettlements?\s+(?:of|in|for)\s+(?:the\s+|a\s+|an\s+)?(?:class\s+)?)`;
 // "has not settled", "yet to be settled", "no settlement has been reached".
 const SETTLEMENT_NEGATION = /\b(not|yet to|never|unable to|no)\b[^.]{0,25}\bsettle/i;
 // Steps that can "conclude" or "close" without the proceeding ending:
@@ -470,10 +475,10 @@ const LIFECYCLE_RULES: LifecycleRule[] = [
     matches: (sentence) => !INTERLOCUTORY_STEP.test(sentence) && (
       // The proceeding, then up to four words (never "settlement"), then the
       // verb: "the class action against Clearview AI was dismissed".
-      new RegExp(String.raw`\b${PROCEEDING}\s+(?:(?!settlement\b)[\w'-]+\s+){0,4}?(?:was|were|has been|have been|is|been)\s+(?:dismissed|discontinued|struck out|thrown out)\b`, 'i').test(sentence)
+      new RegExp(String.raw`${NOT_AFTER_SETTLEMENT}\b${PROCEEDING}\s+(?:(?!settlement\b)[\w'-]+\s+){0,4}?(?:was|were|has been|have been|is|been)\s+(?:dismissed|discontinued|struck out|thrown out)\b`, 'i').test(sentence)
       // "dismissed the class action", but not "dismissed the proposed class
       // action settlement" - that is the settlement failing, not the case.
-      || new RegExp(String.raw`\b(?:dismissed|discontinued|struck out|threw out)\s+(?:the|a|an|its|their)\s+(?:[\w-]+\s+){0,3}${PROCEEDING}\b(?!\s+settlement\b)`, 'i').test(sentence)
+      || new RegExp(String.raw`\b(?:dismissed|discontinued|struck out|threw out)\s+(?:the|a|an|its|their)\s+(?:(?!settlements?\b)[\w-]+\s+){0,3}${PROCEEDING}\b(?!\s+settlement\b)`, 'i').test(sentence)
     ),
   },
   {
@@ -485,9 +490,9 @@ const LIFECYCLE_RULES: LifecycleRule[] = [
     // only allow a few words between them and never cross into a new clause.
     matches: (sentence) => (
       // "the in-principle settlement fell through", "settlement talks failed"
-      new RegExp(String.raw`\bsettlement\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?(?:(?:was|were|has|have|had|is)\s+)?(?:been\s+)?(?:rejected|refused|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed|failed)\b`, 'i').test(sentence)
+      new RegExp(String.raw`\bsettlement\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?(?:(?:was|were|has|have|had|is)\s+)?(?:been\s+)?(?:rejected|refused|thrown out|fell through|collapsed|not approved|abandoned|struck out|dismissed|fail(?:s|ed)?)\b`, 'i').test(sentence)
       // "the court rejected the settlement", "failed to reach a settlement"
-      || new RegExp(String.raw`\b(?:rejected|refused|threw out|dismissed|abandoned|failed to (?:reach|agree|finali[sz]e|approve))\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?settlement\b`, 'i').test(sentence)
+      || new RegExp(String.raw`\b(?:rejected|refused|threw out|dismissed|abandoned|fail(?:s|ed)? to (?:reach|agree|finali[sz]e|approve))\s+(?:(?!${CLAUSE_BREAK}\b)[\w'-]+\s+){0,4}?settlement\b`, 'i').test(sentence)
     ),
   },
   {

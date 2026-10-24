@@ -83,15 +83,20 @@ test('planLifecycleSignalUpdates proposes a failed settlement only when it chang
 });
 
 test('planLifecycleSignalUpdates does not re-propose coverage a person already reviewed, whatever its date', () => {
-  const reviewed = [{ caseId: 'case-1', description: describeNewswireItem(makeItem()), suggestedLifecycleStatus: 'Settled' }];
+  const reviewed = [{ caseId: 'case-1', description: describeNewswireItem(makeItem()) }];
 
   // Same article, but a card with no machine-readable date gets a new
   // fallback date on every run - it must still count as already reviewed.
   const sameCoverage = new Map([[makeItem().matterUrl!, makeItem({ publishedDate: new Date('2026-07-01T00:00:00.000Z') })]]);
   assert.equal(planLifecycleSignalUpdates(sameCoverage, [makeTracked()], reviewed).length, 0);
 
-  const newerCoverage = new Map([[makeItem().matterUrl!, makeItem({ excerpt: 'The court has approved the settlement.' })]]);
-  assert.equal(planLifecycleSignalUpdates(newerCoverage, [makeTracked()], reviewed).length, 1);
+  // Same article with a lightly edited excerpt, or now read as a different
+  // stage under changed rules, is still the article that was reviewed.
+  const editedExcerpt = new Map([[makeItem().matterUrl!, makeItem({ excerpt: 'The parties reached a settlement, the court heard.' })]]);
+  assert.equal(planLifecycleSignalUpdates(editedExcerpt, [makeTracked()], reviewed).length, 0);
+
+  const newerArticle = new Map([[makeItem().matterUrl!, makeItem({ articleUrl: 'https://example-news.test/clearview-approval', excerpt: 'The court has approved the settlement.' })]]);
+  assert.equal(planLifecycleSignalUpdates(newerArticle, [makeTracked()], reviewed).length, 1);
 });
 
 test('planLifecycleSignalUpdates still replaces a pending suggestion when newer coverage matches the stored status', () => {

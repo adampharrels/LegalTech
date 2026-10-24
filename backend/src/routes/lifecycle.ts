@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../db';
 import { syncCaseLifecycleStatus } from '../api-helpers';
-import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, isEarlierStageDay, isLifecycleStageType, latestLifecycleStage } from '../lifecycle-stages';
+import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, isEarlierStageDay, isLifecycleStageType, latestLifecycleStage, parseStageDate } from '../lifecycle-stages';
 
 const router = Router();
 
@@ -147,7 +147,7 @@ router.post('/cases/:id/lifecycle-stages', async (req: Request, res: Response) =
       return res.status(400).json({ error: `status must be one of ${LIFECYCLE_STAGE_TYPES.join(', ')}` });
     }
 
-    const parsedDate = stageDate ? new Date(String(stageDate)) : new Date();
+    const parsedDate = stageDate ? parseStageDate(String(stageDate)) : new Date();
     if (Number.isNaN(parsedDate.getTime())) {
       return res.status(400).json({ error: 'stageDate is not a valid date' });
     }

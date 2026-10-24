@@ -247,6 +247,8 @@ test('detectLifecycleStage does not treat a dismissed appeal, application, or se
   assert.equal(detectLifecycleStage('The strike-out application was dismissed.'), null);
   assert.equal(detectLifecycleStage('The class action settlement was dismissed.'), 'Settlement failed');
   assert.equal(detectLifecycleStage('The judge dismissed the proposed class action settlement.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The settlement of the class action was dismissed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The court dismissed the settlement of the class action.'), 'Settlement failed');
 });
 
 test('detectLifecycleStage does not read an unrelated failure next to a real settlement as the settlement failing', () => {
@@ -257,6 +259,9 @@ test('detectLifecycleStage does not read an unrelated failure next to a real set
   );
   assert.equal(detectLifecycleStage('The proposed settlement of the class action was rejected.'), 'Settlement failed');
   assert.equal(detectLifecycleStage('Settlement talks have failed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('Clearview settlement fails'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The settlement and distribution scheme was rejected.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The parties reached a settlement and the appeal was dismissed.'), 'Settled');
 });
 
 test('detectLifecycleStage needs a settlement to be reached, not just discussed or denied', () => {
