@@ -246,6 +246,17 @@ test('detectLifecycleStage does not treat a dismissed appeal, application, or se
   );
   assert.equal(detectLifecycleStage('The strike-out application was dismissed.'), null);
   assert.equal(detectLifecycleStage('The class action settlement was dismissed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The judge dismissed the proposed class action settlement.'), 'Settlement failed');
+});
+
+test('detectLifecycleStage does not read an unrelated failure next to a real settlement as the settlement failing', () => {
+  assert.equal(detectLifecycleStage('Unitholders reached a settlement after the earlier appeal was dismissed.'), 'Settled');
+  assert.equal(
+    detectLifecycleStage('The plaintiff failed to obtain an injunction, but a settlement was later reached.'),
+    'Settled'
+  );
+  assert.equal(detectLifecycleStage('The proposed settlement of the class action was rejected.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('Settlement talks have failed.'), 'Settlement failed');
 });
 
 test('detectLifecycleStage needs a settlement to be reached, not just discussed or denied', () => {
@@ -260,6 +271,7 @@ test('detectLifecycleStage does not treat a concluded step as the proceeding clo
   assert.equal(detectLifecycleStage('The hearing concluded on Friday.'), null);
   assert.equal(detectLifecycleStage('The trial in the class action concluded last week.'), null);
   assert.equal(detectLifecycleStage('Registration for the class action has closed.'), null);
+  assert.equal(detectLifecycleStage('The class action closed for registrations last week.'), null);
   assert.equal(detectLifecycleStage('The matter has concluded.'), 'Closed');
 });
 

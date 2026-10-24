@@ -17,6 +17,8 @@ export interface TrackedMatter {
   sourceId: string;
   matterUrl: string;
   currentLifecycleStatus: string;
+  // Whether the case already has an unverified detector event awaiting review.
+  hasPendingSignal: boolean;
 }
 
 export interface LifecycleSignalUpdate {
@@ -31,13 +33,21 @@ export interface LifecycleSignalUpdate {
 
 /**
  * A detector event a person has already confirmed or dismissed. The same
- * coverage (same case, date, and suggested stage) is never proposed again,
- * otherwise a dismissed suggestion would come back on every run.
+ * coverage (same case, article text, and suggested stage) is never proposed
+ * again, otherwise a dismissed suggestion would come back on every run.
+ * Coverage is identified by its text rather than its date, because a card
+ * without a machine-readable date falls back to the time of the run.
  */
 export interface ReviewedSignal {
   caseId: string;
-  eventDate: Date;
+  description: string | null;
   suggestedLifecycleStatus: string | null;
+}
+
+export function describeNewswireItem(item: NewswireItem) {
+  return [item.headline, item.excerpt, item.articleUrl ? `Reported by: ${item.articleUrl}` : null]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function planLifecycleSignalUpdates(
@@ -46,7 +56,7 @@ export function planLifecycleSignalUpdates(
   reviewedSignals: ReviewedSignal[] = []
 ): LifecycleSignalUpdate[] {
   const trackedByUrl = new Map(trackedMatters.map((matter) => [matter.matterUrl, matter]));
-  const reviewedKeys = new Set(reviewedSignals.map((signal) => reviewedSignalKey(signal.caseId, signal.eventDate, signal.suggestedLifecycleStatus)));
+  const reviewedKeys = new Set(reviewedSignals.map((signal) => signalKey(signal.caseId, signal.description, signal.suggestedLifecycleStatus)));
   const updates: LifecycleSignalUpdate[] = [];
 
   for (const [matterUrl, item] of latestItemsByMatter) {
@@ -56,13 +66,21 @@ export function planLifecycleSignalUpdates(
     }
 
     const detectedStatus = detectLifecycleStage(`${item.headline} ${item.excerpt}`);
-    // Compared at the coarse level the case actually stores: a failed
-    // settlement on a case that is already Active changes nothing.
-    if (!detectedStatus || coarseStatusForStage(detectedStatus) === tracked.currentLifecycleStatus) {
+    if (!detectedStatus) {
       continue;
     }
 
-    if (reviewedKeys.has(reviewedSignalKey(tracked.caseId, item.publishedDate, detectedStatus))) {
+    // Compared at the coarse level the case actually stores: a failed
+    // settlement on a case that is already Active changes nothing - unless
+    // a pending suggestion is waiting for review, in which case newer
+    // coverage still has to replace it (e.g. a pending "Settled" whose
+    // settlement has since collapsed).
+    if (coarseStatusForStage(detectedStatus) === tracked.currentLifecycleStatus && !tracked.hasPendingSignal) {
+      continue;
+    }
+
+    const description = describeNewswireItem(item);
+    if (reviewedKeys.has(signalKey(tracked.caseId, description, detectedStatus))) {
       continue;
     }
 
@@ -73,15 +91,13 @@ export function planLifecycleSignalUpdates(
       detectedStatus,
       eventDate: item.publishedDate,
       title: `Newswire reports possible move to ${detectedStatus}`,
-      description: [item.headline, item.excerpt, item.articleUrl ? `Reported by: ${item.articleUrl}` : null]
-        .filter(Boolean)
-        .join('\n\n'),
+      description,
     });
   }
 
   return updates;
 }
 
-function reviewedSignalKey(caseId: string, eventDate: Date, status: string | null) {
-  return `${caseId}|${eventDate.getTime()}|${status}`;
+function signalKey(caseId: string, description: string | null, status: string | null) {
+  return `${caseId}|${status}|${description}`;
 }

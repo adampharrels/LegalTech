@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { planLifecycleSignalUpdates, type TrackedMatter } from './lifecycle-signals';
+import { describeNewswireItem, planLifecycleSignalUpdates, type TrackedMatter } from './lifecycle-signals';
 import type { NewswireItem } from './case-ingestor';
 
 function makeItem(overrides: Partial<NewswireItem> = {}): NewswireItem {
@@ -21,6 +21,7 @@ function makeTracked(overrides: Partial<TrackedMatter> = {}): TrackedMatter {
     sourceId: 'source-1',
     matterUrl: 'https://classactions.com.au/matters/clearview-class-action',
     currentLifecycleStatus: 'Active',
+    hasPendingSignal: false,
     ...overrides,
   };
 }
@@ -81,12 +82,26 @@ test('planLifecycleSignalUpdates proposes a failed settlement only when it chang
   assert.equal(planLifecycleSignalUpdates(latest, [makeTracked({ currentLifecycleStatus: 'Active' })]).length, 0);
 });
 
-test('planLifecycleSignalUpdates does not re-propose coverage a person already reviewed', () => {
-  const latest = new Map([[makeItem().matterUrl!, makeItem()]]);
-  const reviewed = [{ caseId: 'case-1', eventDate: new Date('2026-05-20T00:00:00.000Z'), suggestedLifecycleStatus: 'Settled' }];
+test('planLifecycleSignalUpdates does not re-propose coverage a person already reviewed, whatever its date', () => {
+  const reviewed = [{ caseId: 'case-1', description: describeNewswireItem(makeItem()), suggestedLifecycleStatus: 'Settled' }];
 
-  assert.equal(planLifecycleSignalUpdates(latest, [makeTracked()], reviewed).length, 0);
+  // Same article, but a card with no machine-readable date gets a new
+  // fallback date on every run - it must still count as already reviewed.
+  const sameCoverage = new Map([[makeItem().matterUrl!, makeItem({ publishedDate: new Date('2026-07-01T00:00:00.000Z') })]]);
+  assert.equal(planLifecycleSignalUpdates(sameCoverage, [makeTracked()], reviewed).length, 0);
 
-  const newerCoverage = new Map([[makeItem().matterUrl!, makeItem({ publishedDate: new Date('2026-06-01T00:00:00.000Z') })]]);
+  const newerCoverage = new Map([[makeItem().matterUrl!, makeItem({ excerpt: 'The court has approved the settlement.' })]]);
   assert.equal(planLifecycleSignalUpdates(newerCoverage, [makeTracked()], reviewed).length, 1);
+});
+
+test('planLifecycleSignalUpdates still replaces a pending suggestion when newer coverage matches the stored status', () => {
+  // A pending "Settled" is awaiting review on an Active case, then the
+  // settlement collapses: Settlement failed maps to Active, but the stale
+  // pending suggestion must still be updated rather than left to be confirmed.
+  const item = makeItem({ headline: 'Clearview settlement collapses', excerpt: 'The settlement fell through.' });
+  const latest = new Map([[item.matterUrl!, item]]);
+
+  const updates = planLifecycleSignalUpdates(latest, [makeTracked({ hasPendingSignal: true })]);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0]?.detectedStatus, 'Settlement failed');
 });
