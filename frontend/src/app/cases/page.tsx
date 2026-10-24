@@ -24,7 +24,7 @@ export default async function CasesPage({
   }>;
 }) {
   const params = await searchParams;
-  const cases = await getCases(params);
+  const cases = await getCases({ ...params, hideNotRelevant: true });
   const issues = await getIssues();
   const legalAreas = await getLegalAreas();
 

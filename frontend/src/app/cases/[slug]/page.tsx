@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Calendar, MapPin, Scale, BookOpen, AlertTriangle, ExternalLink, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
 import PrintButton from './PrintButton';
+import LifecycleStageTree from '@/components/LifecycleStageTree';
 
 export default async function CaseDetailPage({
   params,
@@ -215,6 +216,15 @@ export default async function CaseDetailPage({
             </div>
           </section>
           
+          {caseData.lifecycleStages.length > 0 && (
+            <section className="flex-col gap-4" style={{ display: 'flex' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Procedural history</h2>
+              <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
+                <LifecycleStageTree nodes={caseData.lifecycleStages} />
+              </div>
+            </section>
+          )}
+
           {/* Extensibility for Events / Timeline */}
           {caseData.events.length > 0 && (
             <section className="flex-col gap-4" style={{ display: 'flex' }}>

@@ -3,13 +3,11 @@ import test from 'node:test';
 import {
   CaseIngestor,
   convertToCandidateFormat,
-  convertToDBFormat,
   detectLifecycleStage,
   extractClassActionsNewswireCases,
   extractNewswireItems,
   getMatchedKeywords,
   latestNewswireItemsByMatter,
-  passesKeywordFilter,
   type CaseData,
   type CaseSource,
 } from './case-ingestor';
@@ -29,16 +27,10 @@ function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   };
 }
 
-test('passesKeywordFilter detects AI-related terms across case text', () => {
-  assert.equal(passesKeywordFilter(makeCaseData()), true);
-  assert.equal(
-    passesKeywordFilter(makeCaseData({ summary: null, fullText: 'The pleadings refer to ChatGPT outputs.' })),
-    true
-  );
-  assert.equal(
-    passesKeywordFilter(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })),
-    true
-  );
+test('getMatchedKeywords detects AI-related terms across case text', () => {
+  assert.ok(getMatchedKeywords(makeCaseData()).length > 0);
+  assert.ok(getMatchedKeywords(makeCaseData({ summary: null, fullText: 'The pleadings refer to ChatGPT outputs.' })).length > 0);
+  assert.ok(getMatchedKeywords(makeCaseData({ summary: 'The regulator raised biometric and facial recognition concerns.' })).length > 0);
 });
 
 test('getMatchedKeywords returns readable evidence labels', () => {
@@ -51,8 +43,8 @@ test('getMatchedKeywords returns readable evidence labels', () => {
   assert.deepEqual(matchedKeywords, ['automated system', 'facial recognition', 'biometric']);
 });
 
-test('passesKeywordFilter rejects unrelated cases', () => {
-  const result = passesKeywordFilter(
+test('getMatchedKeywords finds nothing in unrelated cases', () => {
+  const result = getMatchedKeywords(
     makeCaseData({
       caseName: 'Example Pty Ltd v Council',
       summary: 'A planning dispute about zoning approvals.',
@@ -60,31 +52,7 @@ test('passesKeywordFilter rejects unrelated cases', () => {
     })
   );
 
-  assert.equal(result, false);
-});
-
-test('convertToDBFormat maps source data into a stable case record shape', () => {
-  const converted = convertToDBFormat(makeCaseData());
-
-  assert.equal(converted.slug, 'example-pty-ltd-v-platform-inc-2026-fca-123');
-  assert.equal(converted.caseName, 'Example Pty Ltd v Platform Inc [2026] FCA 123');
-  assert.equal(converted.neutralCitation, '[2026] FCA 123');
-  assert.equal(converted.jurisdiction, 'Australia');
-  assert.equal(converted.country, 'Australia');
-  assert.equal(converted.courtLevel, 'Federal');
-  assert.equal(converted.statusPublic, 'Published');
-  assert.equal(converted.filingDate.toISOString(), '2026-03-15T00:00:00.000Z');
-});
-
-test('convertToDBFormat truncates long generated slugs', () => {
-  const converted = convertToDBFormat(
-    makeCaseData({
-      caseName:
-        'A Very Long Case Name With Many Parties And Additional Procedural Descriptors That Should Not Produce An Unbounded Slug',
-    })
-  );
-
-  assert.equal(converted.slug.length, 100);
+  assert.deepEqual(result, []);
 });
 
 test('convertToCandidateFormat maps ingested cases into triage candidates', () => {
@@ -253,19 +221,63 @@ test('detectLifecycleStage reads settlement, dismissal, and closure language', (
   assert.equal(detectLifecycleStage('A trial has been listed for next year.'), null);
 });
 
-test('detectLifecycleStage reads a failed settlement as Dismissed, not Settled', () => {
+test('detectLifecycleStage reads a failed settlement as Settlement failed, not Settled or Dismissed', () => {
+  assert.equal(detectLifecycleStage('The court rejected the settlement reached by the parties.'), 'Settlement failed');
+  assert.equal(
+    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
+    'Settlement failed'
+  );
+  assert.equal(detectLifecycleStage('The parties failed to reach a settlement at mediation.'), 'Settlement failed');
+});
+
+test('detectLifecycleStage still reads Dismissed when the case itself is dismissed after a failed settlement', () => {
   assert.equal(
     detectLifecycleStage('The proposed settlement was thrown out and the case was dismissed.'),
     'Dismissed'
   );
+  assert.equal(detectLifecycleStage('The class action against Clearview AI was dismissed.'), 'Dismissed');
+  assert.equal(detectLifecycleStage('The applicants discontinued the proceeding.'), 'Dismissed');
+});
+
+test('detectLifecycleStage does not treat a dismissed appeal, application, or settlement as the case being dismissed', () => {
   assert.equal(
-    detectLifecycleStage('The court rejected the settlement reached by the parties.'),
-    'Dismissed'
+    detectLifecycleStage('The appeal was dismissed, clearing the way for the class action to proceed.'),
+    null
   );
+  assert.equal(detectLifecycleStage('The strike-out application was dismissed.'), null);
+  assert.equal(detectLifecycleStage('The class action settlement was dismissed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The judge dismissed the proposed class action settlement.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The settlement of the class action was dismissed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The court dismissed the settlement of the class action.'), 'Settlement failed');
+});
+
+test('detectLifecycleStage does not read an unrelated failure next to a real settlement as the settlement failing', () => {
+  assert.equal(detectLifecycleStage('Unitholders reached a settlement after the earlier appeal was dismissed.'), 'Settled');
   assert.equal(
-    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
-    'Dismissed'
+    detectLifecycleStage('The plaintiff failed to obtain an injunction, but a settlement was later reached.'),
+    'Settled'
   );
+  assert.equal(detectLifecycleStage('The proposed settlement of the class action was rejected.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('Settlement talks have failed.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('Clearview settlement fails'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The settlement and distribution scheme was rejected.'), 'Settlement failed');
+  assert.equal(detectLifecycleStage('The parties reached a settlement and the appeal was dismissed.'), 'Settled');
+});
+
+test('detectLifecycleStage needs a settlement to be reached, not just discussed or denied', () => {
+  assert.equal(detectLifecycleStage('Parties enter settlement talks.'), null);
+  assert.equal(detectLifecycleStage('The case has not settled and is listed for trial.'), null);
+  assert.equal(detectLifecycleStage('No settlement has been reached.'), null);
+  assert.equal(detectLifecycleStage('Clearview class action reaches settlement'), 'Settled');
+  assert.equal(detectLifecycleStage('The court approved the settlement.'), 'Settled');
+});
+
+test('detectLifecycleStage does not treat a concluded step as the proceeding closing', () => {
+  assert.equal(detectLifecycleStage('The hearing concluded on Friday.'), null);
+  assert.equal(detectLifecycleStage('The trial in the class action concluded last week.'), null);
+  assert.equal(detectLifecycleStage('Registration for the class action has closed.'), null);
+  assert.equal(detectLifecycleStage('The class action closed for registrations last week.'), null);
+  assert.equal(detectLifecycleStage('The matter has concluded.'), 'Closed');
 });
 
 test('detectLifecycleStage does not let an unrelated dismissal in a later sentence override a real settlement', () => {

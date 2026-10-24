@@ -8,6 +8,7 @@ import {
   verifyLifecycleEvent,
 } from '@/actions/admin';
 import { LIFECYCLE_STAGE_TYPES, type LifecycleStageNode } from '@/types/cases';
+import LifecycleStageTree, { formatStageDate as formatDate } from '@/components/LifecycleStageTree';
 
 const selectStyle = {
   width: '100%',
@@ -22,45 +23,8 @@ const selectStyle = {
 
 const inputStyle = { ...selectStyle, marginBottom: 0 };
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
-
 function flattenWithDepth(nodes: LifecycleStageNode[], depth = 0): Array<{ node: LifecycleStageNode; depth: number }> {
   return nodes.flatMap((node) => [{ node, depth }, ...flattenWithDepth(node.children, depth + 1)]);
-}
-
-function StageTree({ nodes, depth = 0 }: { nodes: LifecycleStageNode[]; depth?: number }) {
-  if (nodes.length === 0) {
-    return depth === 0 ? (
-      <p className="text-muted" style={{ fontSize: '0.875rem' }}>No stages recorded yet. Add the first one below.</p>
-    ) : null;
-  }
-
-  return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0, paddingLeft: depth === 0 ? 0 : '1.25rem', borderLeft: depth === 0 ? 'none' : '1px solid var(--border-color)' }}>
-      {nodes.map((node) => (
-        <li key={node.id} style={{ marginTop: depth === 0 ? 0 : '0.75rem', marginBottom: '0.75rem' }}>
-          <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
-            <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '50%', background: 'var(--accent-primary)', display: 'inline-block' }} />
-            <span style={{ fontWeight: 600 }}>{node.status}</span>
-            <span className="text-muted" style={{ fontSize: '0.8125rem' }}>{formatDate(node.stageDate)}</span>
-            {node.source === 'Newswire detector' && (
-              <span style={{ padding: '0.1rem 0.4rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
-                from newswire
-              </span>
-            )}
-          </div>
-          {node.notes && (
-            <p className="text-muted" style={{ fontSize: '0.8125rem', marginTop: '0.25rem', marginLeft: '1.125rem', whiteSpace: 'pre-line' }}>
-              {node.notes}
-            </p>
-          )}
-          <StageTree nodes={node.children} depth={depth + 1} />
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 export default async function LifecycleReviewPage({
@@ -73,12 +37,17 @@ export default async function LifecycleReviewPage({
   const searchResults = query ? await getCases({ query }) : [];
   const selectedCase = params.caseId ? searchResults.find((c) => c.id === params.caseId) : undefined;
 
-  const stageTree = params.caseId ? await getLifecycleStages(params.caseId) : [];
+  const { tree: stageTree, latestStageId } = selectedCase
+    ? await getLifecycleStages(selectedCase.id)
+    : { tree: [], latestStageId: null };
   const flatStages = flattenWithDepth(stageTree);
 
+  // Only split a case's signals out of the global list when its panel is
+  // actually shown; otherwise (e.g. a caseId the search doesn't return) they
+  // would be hidden from both places.
   const pendingEvents = await getLifecycleEvents('Unverified');
-  const pendingForSelectedCase = params.caseId ? pendingEvents.filter((e) => e.case.id === params.caseId) : [];
-  const otherPendingEvents = params.caseId ? pendingEvents.filter((e) => e.case.id !== params.caseId) : pendingEvents;
+  const pendingForSelectedCase = selectedCase ? pendingEvents.filter((e) => e.case.id === selectedCase.id) : [];
+  const otherPendingEvents = selectedCase ? pendingEvents.filter((e) => e.case.id !== selectedCase.id) : pendingEvents;
 
   return (
     <div className="flex-col gap-8" style={{ display: 'flex' }}>
@@ -175,7 +144,7 @@ export default async function LifecycleReviewPage({
 
           <div style={{ marginTop: '1.25rem' }}>
             <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: '0.75rem' }}>Procedural history</h3>
-            <StageTree nodes={stageTree} />
+            <LifecycleStageTree nodes={stageTree} emptyMessage="No stages recorded yet. Add the first one below." />
           </div>
 
           <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
@@ -184,7 +153,7 @@ export default async function LifecycleReviewPage({
               <input type="hidden" name="caseId" value={selectedCase.id} />
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Attach after</label>
-                <select name="parentId" style={selectStyle} defaultValue={flatStages[0]?.node.id || ''}>
+                <select name="parentId" style={selectStyle} defaultValue={latestStageId || ''}>
                   <option value="" style={{ color: '#000' }}>None (start of tree)</option>
                   {flatStages.map(({ node, depth }) => (
                     <option key={node.id} value={node.id} style={{ color: '#000' }}>
@@ -219,7 +188,7 @@ export default async function LifecycleReviewPage({
 
       <section className="flex-col gap-4" style={{ display: 'flex' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-          {params.caseId ? 'Other pending lifecycle signals' : 'Pending lifecycle signals'} ({otherPendingEvents.length})
+          {selectedCase ? 'Other pending lifecycle signals' : 'Pending lifecycle signals'} ({otherPendingEvents.length})
         </h2>
         {otherPendingEvents.length === 0 ? (
           <div className="glass-panel surface-panel text-center text-muted" style={{ padding: '2rem' }}>
