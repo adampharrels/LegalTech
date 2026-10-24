@@ -35,14 +35,39 @@ model Case {
   isAiRelated           Boolean   @default(true)
   createdAt             DateTime  @default(now())
 
-  parties     Party[]
-  issues      CaseIssue[]
-  legalAreas  CaseLegalArea[]
-  events      Event[]
-  sources     Source[]
-  llmAnalyses LlmAnalysis[]
-  relatedTo   RelatedCase[]   @relation("RelatedCasesForward")
-  relatedFrom RelatedCase[]   @relation("RelatedCasesBackward")
+  parties         Party[]
+  issues          CaseIssue[]
+  legalAreas      CaseLegalArea[]
+  events          Event[]
+  sources         Source[]
+  llmAnalyses     LlmAnalysis[]
+  relatedTo       RelatedCase[]    @relation("RelatedCasesForward")
+  relatedFrom     RelatedCase[]    @relation("RelatedCasesBackward")
+  lifecycleStages LifecycleStage[]
+}
+
+// A branching record of a case's procedural history (Filed, Certified, Trial,
+// Judgment, Settled, Dismissed, Closed), each stage dated and optionally
+// attached to a parent stage. Branching supports cases where, for example, a
+// trial and settlement talks proceed in parallel, or a judgment branches into
+// an appeal. Case.caseLifecycleStatus is kept as a coarse mirror of whichever
+// stage was most recently added, for the filters and badges that already
+// depend on that simpler five-value field.
+model LifecycleStage {
+  id        String   @id @default(uuid())
+  caseId    String
+  parentId  String?
+  status    String
+  stageDate DateTime
+  notes     String?
+  source    String   @default("Manual")
+  createdAt DateTime @default(now())
+
+  case     Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  parent   LifecycleStage?  @relation("LifecycleStageChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children LifecycleStage[] @relation("LifecycleStageChildren")
+
+  @@index([caseId])
 }
 
 model CaseCandidate {
@@ -132,14 +157,18 @@ model CaseLegalArea {
 }
 
 model Event {
-  id          String   @id @default(uuid())
-  caseId      String
-  eventDate   DateTime
-  eventType   String
-  title       String
-  description String?
-  sourceId    String?
-  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id                       String   @id @default(uuid())
+  caseId                   String
+  eventDate                DateTime
+  eventType                String
+  title                    String
+  description              String?
+  sourceId                 String?
+  verificationStatus       String   @default("Unverified")
+  suggestedLifecycleStatus String?
+  case                     Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([verificationStatus])
 }
 
 model Source {

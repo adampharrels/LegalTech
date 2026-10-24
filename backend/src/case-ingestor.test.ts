@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CaseIngestor, convertToCandidateFormat, convertToDBFormat, getMatchedKeywords, passesKeywordFilter, type CaseData, type CaseSource } from './case-ingestor';
+import {
+  CaseIngestor,
+  convertToCandidateFormat,
+  convertToDBFormat,
+  detectLifecycleStage,
+  extractClassActionsNewswireCases,
+  extractNewswireItems,
+  getMatchedKeywords,
+  latestNewswireItemsByMatter,
+  passesKeywordFilter,
+  type CaseData,
+  type CaseSource,
+} from './case-ingestor';
 
 function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   return {
@@ -151,4 +163,114 @@ test('CaseIngestor coordinates injected sources and deduplicates by case name an
   assert.equal(cases.length, 2);
   assert.equal(cases[0]?.caseName, sourceCase.caseName);
   assert.equal(cases[1]?.caseName, 'Different AI matter');
+});
+
+function newswireFixture() {
+  return `
+    <html><body>
+      <section class="nw-hero">
+        <div class="nw-hero-content">
+          <a href="#hero" class="nw-hero-headline">Sports concussion class action wins mediation date</a>
+          <p class="nw-hero-excerpt">A concussion class action against a sporting league is scheduled for trial.</p>
+          <div class="nw-hero-matter">Matter &rarr; <a href="/matters/concussion-class-action">Concussion Class Action</a></div>
+          <div class="nw-hero-byline"><time datetime="2026-05-18">18 May 2026</time></div>
+        </div>
+      </section>
+      <article class="nw-card">
+        <div class="nw-card-date"><time datetime="2026-05-14">14 May 2026</time></div>
+        <a href="https://example-news.test/clearview-trial" class="nw-card-source">Example News</a>
+        <h2 class="nw-card-headline">Facial recognition class action heads to Federal Court trial</h2>
+        <p class="nw-card-excerpt">The Federal Court will hear claims about Clearview's facial recognition scraping practices.</p>
+        <div class="nw-card-matter">Matter: <a href="/matters/clearview-class-action">Clearview Facial Recognition Class Action</a></div>
+      </article>
+      <article class="nw-card">
+        <div class="nw-card-date"><time datetime="2026-05-10">10 May 2026</time></div>
+        <h2 class="nw-card-headline">Older report on the same Clearview facial recognition case</h2>
+        <p class="nw-card-excerpt">Background on the Clearview matter before the trial date was set.</p>
+        <div class="nw-card-matter">Matter: <a href="/matters/clearview-class-action">Clearview Facial Recognition Class Action</a></div>
+      </article>
+      <article class="nw-card">
+        <div class="nw-card-date"><time datetime="2026-05-12">12 May 2026</time></div>
+        <h2 class="nw-card-headline">Supermarket discount class action reaches settlement</h2>
+        <p class="nw-card-excerpt">Shoppers will be compensated after a pricing class action settled out of court.</p>
+        <div class="nw-card-matter">Matter: <a href="/matters/discount-class-action">Discount Pricing Class Action</a></div>
+      </article>
+    </body></html>
+  `;
+}
+
+test('extractClassActionsNewswireCases keeps only AI-relevant matters, deduplicated to the newest mention', () => {
+  const cases = extractClassActionsNewswireCases(
+    newswireFixture(),
+    'https://classactions.com.au/newswire',
+    'ClassActions.com.au newswire'
+  );
+
+  assert.equal(cases.length, 1);
+  const [clearviewCase] = cases;
+  assert.equal(clearviewCase?.caseName, 'Clearview Facial Recognition Class Action');
+  assert.equal(clearviewCase?.url, 'https://classactions.com.au/matters/clearview-class-action');
+  assert.equal(clearviewCase?.court, 'Federal Court of Australia');
+  assert.equal(clearviewCase?.publishedDate.toISOString(), '2026-05-14T00:00:00.000Z');
+  assert.equal(clearviewCase?.sourceType, 'Media coverage');
+  assert.equal(clearviewCase?.sourceCategory, 'Media');
+  assert.equal(clearviewCase?.courtLevel, 'Media');
+  assert.match(clearviewCase?.summary || '', /Clearview/);
+});
+
+test('extractClassActionsNewswireCases respects the limit', () => {
+  const cases = extractClassActionsNewswireCases(
+    newswireFixture(),
+    'https://classactions.com.au/newswire',
+    'ClassActions.com.au newswire',
+    0
+  );
+
+  assert.equal(cases.length, 0);
+});
+
+test('extractNewswireItems captures the article source link alongside the matter link', () => {
+  const items = extractNewswireItems(newswireFixture(), 'https://classactions.com.au/newswire');
+  const clearviewTrialItem = items.find((item) => item.headline.startsWith('Facial recognition'));
+
+  assert.equal(clearviewTrialItem?.matterUrl, 'https://classactions.com.au/matters/clearview-class-action');
+  assert.equal(clearviewTrialItem?.articleUrl, 'https://example-news.test/clearview-trial');
+});
+
+test('latestNewswireItemsByMatter keeps only the newest item per matter, in feed order', () => {
+  const items = extractNewswireItems(newswireFixture(), 'https://classactions.com.au/newswire');
+  const latest = latestNewswireItemsByMatter(items, 'https://classactions.com.au/newswire');
+
+  assert.equal(latest.size, 3);
+  const clearview = latest.get('https://classactions.com.au/matters/clearview-class-action');
+  assert.equal(clearview?.headline, 'Facial recognition class action heads to Federal Court trial');
+});
+
+test('detectLifecycleStage reads settlement, dismissal, and closure language', () => {
+  assert.equal(detectLifecycleStage('The parties have reached a settlement.'), 'Settled');
+  assert.equal(detectLifecycleStage('The claim was dismissed by the court.'), 'Dismissed');
+  assert.equal(detectLifecycleStage('The proceeding has concluded.'), 'Closed');
+  assert.equal(detectLifecycleStage('A trial has been listed for next year.'), null);
+});
+
+test('detectLifecycleStage reads a failed settlement as Dismissed, not Settled', () => {
+  assert.equal(
+    detectLifecycleStage('The proposed settlement was thrown out and the case was dismissed.'),
+    'Dismissed'
+  );
+  assert.equal(
+    detectLifecycleStage('The court rejected the settlement reached by the parties.'),
+    'Dismissed'
+  );
+  assert.equal(
+    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
+    'Dismissed'
+  );
+});
+
+test('detectLifecycleStage does not let an unrelated dismissal in a later sentence override a real settlement', () => {
+  assert.equal(
+    detectLifecycleStage('The parties have reached a settlement. The court separately dismissed an unrelated motion.'),
+    'Settled'
+  );
 });

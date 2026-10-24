@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import type { CaseCandidate } from '@/types/cases';
+import type { CaseCandidate, LifecycleEvent, LifecycleStageNode } from '@/types/cases';
 
 const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 
@@ -174,6 +174,89 @@ export async function rejectCandidate(formData: FormData) {
 
   revalidatePath('/admin/triage');
   redirect('/admin/triage');
+}
+
+export async function getLifecycleEvents(verificationStatus?: string): Promise<LifecycleEvent[]> {
+  const params = new URLSearchParams();
+  if (verificationStatus) params.append('verificationStatus', verificationStatus);
+
+  const response = await fetch(`${API_URL}/events${params.toString() ? `?${params.toString()}` : ''}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json() as Promise<LifecycleEvent[]>;
+}
+
+export async function verifyLifecycleEvent(formData: FormData) {
+  const eventId = String(formData.get('eventId') || '');
+  const lifecycleStatus = formData.get('lifecycleStatus');
+
+  const response = await fetch(`${API_URL}/events/${eventId}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lifecycleStatus }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to verify lifecycle event');
+  }
+
+  revalidatePath('/admin/lifecycle');
+  revalidatePath('/admin');
+  revalidatePath('/cases');
+  revalidatePath('/dashboard');
+}
+
+export async function dismissLifecycleEvent(formData: FormData) {
+  const eventId = String(formData.get('eventId') || '');
+
+  const response = await fetch(`${API_URL}/events/${eventId}/dismiss`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to dismiss lifecycle event');
+  }
+
+  revalidatePath('/admin/lifecycle');
+}
+
+export async function getLifecycleStages(caseId: string): Promise<LifecycleStageNode[]> {
+  const response = await fetch(`${API_URL}/cases/${caseId}/lifecycle-stages`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return response.json() as Promise<LifecycleStageNode[]>;
+}
+
+export async function addLifecycleStage(formData: FormData) {
+  const caseId = String(formData.get('caseId') || '');
+  const payload = {
+    parentId: formData.get('parentId') || null,
+    status: formData.get('status'),
+    stageDate: formData.get('stageDate'),
+    notes: formData.get('notes'),
+  };
+
+  const response = await fetch(`${API_URL}/cases/${caseId}/lifecycle-stages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to add lifecycle stage');
+  }
+
+  revalidatePath('/admin/lifecycle');
 }
 
 export async function createBasicCase(formData: FormData) {

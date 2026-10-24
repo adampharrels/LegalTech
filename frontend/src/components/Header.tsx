@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, LayoutDashboard, Gavel, ListChecks } from 'lucide-react';
+import { Search, LayoutDashboard, Gavel, ListChecks, History } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -34,16 +34,24 @@ export default function Header() {
             <span>Dashboard</span>
           </Link>
           <div style={{ width: '1px', height: '1rem', background: 'var(--border-color)', margin: '0 0.5rem' }}></div>
-          <Link 
-            href="/admin/triage" 
+          <Link
+            href="/admin/triage"
             className="flex items-center gap-2 nav-link"
             style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}
           >
             <ListChecks size={16} />
             <span>Triage</span>
           </Link>
-          <Link 
-            href="/admin" 
+          <Link
+            href="/admin/lifecycle"
+            className="flex items-center gap-2 nav-link"
+            style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}
+          >
+            <History size={16} />
+            <span>Lifecycle</span>
+          </Link>
+          <Link
+            href="/admin"
             style={{ 
               padding: '0.5rem 1rem', 
               borderRadius: 'var(--radius-sm)', 

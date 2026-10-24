@@ -55,6 +55,31 @@ export type CaseEvent = {
   eventType: string;
   title: string;
   description: string | null;
+  verificationStatus: string;
+  suggestedLifecycleStatus: string | null;
+};
+
+export type LifecycleEvent = CaseEvent & {
+  caseId: string;
+  case: {
+    id: string;
+    slug: string;
+    caseName: string;
+    caseLifecycleStatus: string;
+  };
+};
+
+export const LIFECYCLE_STAGE_TYPES = ['Filed', 'Certified', 'Trial', 'Judgment', 'Settled', 'Dismissed', 'Closed'] as const;
+
+export type LifecycleStageNode = {
+  id: string;
+  parentId: string | null;
+  status: string;
+  stageDate: string;
+  notes: string | null;
+  source: string;
+  createdAt: string;
+  children: LifecycleStageNode[];
 };
 
 export type CaseSource = {
