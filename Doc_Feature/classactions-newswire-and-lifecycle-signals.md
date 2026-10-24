@@ -51,7 +51,9 @@ The `Event` model gained two fields to support this:
 - `verificationStatus` (default `"Unverified"`), the same pattern `Source.verificationStatus` already used
 - `suggestedLifecycleStatus`, the status the detector believes the coverage reports
 
-The public case page (`GET /api/cases/:slug`) now only returns events where `verificationStatus` is `"Verified"`. An automatically-logged event is invisible on the public site until a person confirms it through the review page. This holds even though, today, the person triaging and the person viewing the site are the same user — the point of the gate is the deliberate confirmation step, which is what will matter once those become different people.
+The public case page (`GET /api/cases/:slug`) now only returns events where `verificationStatus` is `"Verified"`. An automatically-logged event is invisible on the public site until a person confirms it through the review page. Once confirmed, it appears on the case page as a stage in the procedural history tree (Part 3) rather than in the timeline, so it isn't shown twice.
+
+Verify and dismiss only act on an event that is still `"Unverified"`; repeating either (a double submit, or confirming something already dismissed) returns 409 and changes nothing. This holds even though, today, the person triaging and the person viewing the site are the same user — the point of the gate is the deliberate confirmation step, which is what will matter once those become different people.
 
 ### How detection works
 
@@ -59,8 +61,8 @@ The public case page (`GET /api/cases/:slug`) now only returns events where `ver
 
 1. Fetches the newswire page and extracts the newest item per matter, exactly as Part 1 does.
 2. Looks up which of those matter URLs already appear as a `Source.url` on some `Case` — this is how a newswire matter is matched back to a case you track, using the link that was already stored when the candidate was accepted. No new field was needed for this.
-3. For each matched matter, checks the coverage text for settlement, dismissal, or closure language (`detectLifecycleStage` in `case-ingestor.ts`).
-4. If the coverage reports a different status than the case currently has, and no event has already been logged for that case on that date, logs a new `Event` with `verificationStatus: "Unverified"` and `suggestedLifecycleStatus` set to the detected status.
+3. For each matched matter, checks the coverage text, sentence by sentence, for language reporting a settlement, a failed settlement, a dismissal, or closure (`detectLifecycleStage` in `case-ingestor.ts`).
+4. If the detected stage implies a different coarse status than the case currently has, and that same coverage (case, date, and suggested stage) hasn't already been confirmed or dismissed, logs a new `Event` with `verificationStatus: "Unverified"` and `suggestedLifecycleStatus` set to the detected stage. Without the second check, a dismissed suggestion would come back on every run.
 
 The planning step (deciding which updates to propose) is a pure function, `planLifecycleSignalUpdates` in `backend/src/lifecycle-signals.ts`, kept separate from the database reads and writes so it can be unit tested directly (`backend/src/lifecycle-signals.test.ts`).
 
@@ -72,20 +74,20 @@ The planning step (deciding which updates to propose) is a pure function, `planL
 
 ## Part 3: The lifecycle stage tree
 
-Confirming a detected event needs somewhere to put the result. Rather than overwriting a single flat status field, a case's procedural history is kept as a dated, branching tree: `Filed → Certified → Trial → Judgment/Settled/Dismissed/Closed`, where a stage can have more than one child - for example a trial branching into a judgment on one path and parallel settlement talks on another, or a judgment branching into an appeal.
+Confirming a detected event needs somewhere to put the result. Rather than overwriting a single flat status field, a case's procedural history is kept as a dated, branching tree: `Filed → Certified → Trial → Judgment → Appeal`, ending in `Settled`/`Dismissed`/`Closed`, where a stage can have more than one child - for example a trial branching into a judgment on one path and parallel settlement talks on another, or a judgment branching into an appeal.
 
 ### Why not just widen `caseLifecycleStatus`
 
-`Case.caseLifecycleStatus` already has five values (`Active`, `Pending`, `Settled`, `Dismissed`, `Closed`) baked into the filter sidebar, the dashboard's "active cases" count, and the case list badge. Rather than widen that vocabulary everywhere it's read, the new `LifecycleStage` model uses its own fuller vocabulary (`Filed`, `Certified`, `Trial`, `Judgment`, `Settled`, `Dismissed`, `Closed`), and `coarseStatusForStage` (in `backend/src/lifecycle-stages.ts`) maps each fine-grained stage onto the existing five-value field whenever a stage is added. Nothing that already reads `caseLifecycleStatus` needed to change.
+`Case.caseLifecycleStatus` already has five values (`Active`, `Pending`, `Settled`, `Dismissed`, `Closed`) baked into the filter sidebar, the dashboard's "active cases" count, and the case list badge. Rather than widen that vocabulary everywhere it's read, the new `LifecycleStage` model uses its own fuller vocabulary (`Filed`, `Certified`, `Trial`, `Judgment`, `Appeal`, `Settlement failed`, `Settled`, `Dismissed`, `Closed`), and `coarseStatusForStage` (in `backend/src/lifecycle-stages.ts`) maps each fine-grained stage onto the existing five-value field. Whenever a stage is added, the case's status is re-derived from the latest stage *by stage date* (`coarseStatusForStages`), so back-filling an older stage never overwrites a newer outcome. `Settlement failed` maps to `Active`: a settlement falling through sends the case back to being litigated, it doesn't dismiss it. Nothing that already reads `caseLifecycleStatus` needed to change.
 
 ### Data model
 
-`LifecycleStage` (one row per stage): `caseId`, an optional `parentId` pointing at another stage on the same case, `status`, `stageDate`, `notes`, and `source` (`"Manual"` or `"Newswire detector"`). `buildLifecycleStageTree` (pure, unit tested in `backend/src/lifecycle-stages.test.ts`) assembles a case's flat rows into the branching structure, newest-created first at every level.
+`LifecycleStage` (one row per stage): `caseId`, an optional `parentId` pointing at another stage on the same case, `status`, `stageDate`, `notes`, and `source` (`"Manual"` or `"Newswire detector"`). `buildLifecycleStageTree` (pure, unit tested in `backend/src/lifecycle-stages.test.ts`) assembles a case's flat rows into the branching structure, newest stage date first at every level (same-day stages fall back to entry order).
 
 ### Two ways a stage gets added
 
-- **Manually**: `POST /api/cases/:id/lifecycle-stages` with `{ parentId, status, stageDate, notes }`. `parentId` can be any existing stage on that case, not just the latest one, which is what makes branches possible.
-- **From a confirmed newswire signal**: `POST /api/events/:id/verify` (see Part 2) now adds a stage instead of writing `caseLifecycleStatus` directly - attached as a child of whichever stage was most recently added, dated to the article's publish date, tagged `source: "Newswire detector"`, with the article excerpt carried over as the stage's notes.
+- **Manually**: `POST /api/cases/:id/lifecycle-stages` with `{ parentId, status, stageDate, notes }`. `parentId` can be any existing stage on that case, not just the latest one, which is what makes branches possible. A stage can't be dated earlier than the stage it attaches after.
+- **From a confirmed newswire signal**: `POST /api/events/:id/verify` (see Part 2) now adds a stage instead of writing `caseLifecycleStatus` directly - attached as a child of the latest stage dated on or before the article, dated to the article's publish date, tagged `source: "Newswire detector"`, with the article excerpt carried over as the stage's notes.
 
 Both paths go through the same table and the same coarse-status mirroring, so the tree doesn't end up with two different notions of "what happened."
 
@@ -95,7 +97,7 @@ Search for a case by name (reuses the existing `GET /api/cases?query=` search). 
 
 - Any newswire-detected changes for that case still awaiting confirmation, inline, with a status dropdown (pre-filled with the detected guess but editable) and a confirm/dismiss action.
 - The procedural history tree, newest stage first, each node dated, branches shown by indentation.
-- A form to add a stage directly, attached to any existing node via an "Attach after" dropdown (defaults to the latest one).
+- A form to add a stage directly, attached to any existing node via an "Attach after" dropdown (defaults to the latest-dated stage, which `GET /api/cases/:id/lifecycle-stages` returns as `latestStageId` alongside the tree).
 
 Below the search box, a global list still shows every unresolved newswire signal across all cases, for working through them without knowing in advance which case they belong to.
 
@@ -103,7 +105,8 @@ Below the search box, a global list still shows every unresolved newswire signal
 
 - `backend/src/lifecycle-stages.ts` / `.test.ts`: `LifecycleStageType` vocabulary, `coarseStatusForStage`, `buildLifecycleStageTree`, `latestLifecycleStage`
 - `backend/src/index.ts`: `GET`/`POST /api/cases/:id/lifecycle-stages`
-- `frontend/src/app/admin/lifecycle/page.tsx`: search, tree rendering, add-stage form, inline confirmation
+- `frontend/src/app/admin/lifecycle/page.tsx`: search, add-stage form, inline confirmation
+- `frontend/src/components/LifecycleStageTree.tsx`: tree rendering, shared with the public case page
 - `frontend/src/actions/admin.ts`: `getLifecycleStages`, `addLifecycleStage`
 
 ## Running it
@@ -118,7 +121,7 @@ Then visit `/admin/lifecycle`, search for a case, and either confirm what the de
 
 ## Known limitations
 
-- Stage detection is a keyword match ("settlement", "dismissed", "concluded", and close variants) against the article headline and excerpt. It handles the common reversal case explicitly (a settlement reported as rejected, thrown out, or fallen through reads as "Dismissed", not "Settled"), but it can still miss phrasing it has no pattern for. This is exactly why confirmation is required rather than automatic.
+- Stage detection is a sentence-level pattern match against the article headline and excerpt. It deliberately ignores steps inside a case (a dismissed appeal or application, settlement talks, a hearing concluding, registration closing) and reads a settlement that was rejected or fell through as `Settlement failed`, not `Settled` or `Dismissed`. It can still miss or misread phrasing it has no pattern for, which is exactly why confirmation is required rather than automatic.
 - At most one unverified lifecycle event is kept per case at a time. If a case already has a pending event and a later run detects a further change, that event is updated in place with the newest coverage rather than left alongside a second, possibly contradictory one — so the review queue never shows two stale, conflicting suggestions for the same case.
 - A matter is only matched to a tracked case if that case has a `Source` row whose URL is the same ClassActions.com.au matter page. A case that predates this feature, or was accepted from a different source, will not be matched even if it covers the same matter, unless a `Source` pointing at that matter page is added to it separately.
 - The fedcourt.gov.au class actions list remains unfetched due to its bot challenge; it was evaluated and explicitly skipped rather than overlooked.
