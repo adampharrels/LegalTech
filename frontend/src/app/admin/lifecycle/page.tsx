@@ -37,14 +37,17 @@ export default async function LifecycleReviewPage({
   const searchResults = query ? await getCases({ query }) : [];
   const selectedCase = params.caseId ? searchResults.find((c) => c.id === params.caseId) : undefined;
 
-  const { tree: stageTree, latestStageId } = params.caseId
-    ? await getLifecycleStages(params.caseId)
+  const { tree: stageTree, latestStageId } = selectedCase
+    ? await getLifecycleStages(selectedCase.id)
     : { tree: [], latestStageId: null };
   const flatStages = flattenWithDepth(stageTree);
 
+  // Only split a case's signals out of the global list when its panel is
+  // actually shown; otherwise (e.g. a caseId the search doesn't return) they
+  // would be hidden from both places.
   const pendingEvents = await getLifecycleEvents('Unverified');
-  const pendingForSelectedCase = params.caseId ? pendingEvents.filter((e) => e.case.id === params.caseId) : [];
-  const otherPendingEvents = params.caseId ? pendingEvents.filter((e) => e.case.id !== params.caseId) : pendingEvents;
+  const pendingForSelectedCase = selectedCase ? pendingEvents.filter((e) => e.case.id === selectedCase.id) : [];
+  const otherPendingEvents = selectedCase ? pendingEvents.filter((e) => e.case.id !== selectedCase.id) : pendingEvents;
 
   return (
     <div className="flex-col gap-8" style={{ display: 'flex' }}>
@@ -185,7 +188,7 @@ export default async function LifecycleReviewPage({
 
       <section className="flex-col gap-4" style={{ display: 'flex' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-          {params.caseId ? 'Other pending lifecycle signals' : 'Pending lifecycle signals'} ({otherPendingEvents.length})
+          {selectedCase ? 'Other pending lifecycle signals' : 'Pending lifecycle signals'} ({otherPendingEvents.length})
         </h2>
         {otherPendingEvents.length === 0 ? (
           <div className="glass-panel surface-panel text-center text-muted" style={{ padding: '2rem' }}>

@@ -58,11 +58,26 @@ export interface LifecycleStageNode extends LifecycleStageRecord {
   children: LifecycleStageNode[];
 }
 
-// Stages are ordered by the date they happened, not the date they were
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// Stage dates are compared by calendar day (UTC). A manual stage comes from a
+// date-only input (midnight), while a newswire stage carries the article's
+// full timestamp, so comparing raw timestamps would put a stage entered by
+// hand on the same day "before" the newswire stage it follows.
+function stageDay(date: Date) {
+  return Math.floor(date.getTime() / MS_PER_DAY);
+}
+
+/** Whether a stage dated `date` would be on an earlier day than `than`. */
+export function isEarlierStageDay(date: Date, than: Date) {
+  return stageDay(date) < stageDay(than);
+}
+
+// Stages are ordered by the day they happened, not the date they were
 // entered, so back-filling an older stage doesn't make it look like the
 // newest one. Same-day stages fall back to entry order.
 function compareChronologically(a: LifecycleStageRecord, b: LifecycleStageRecord) {
-  return a.stageDate.getTime() - b.stageDate.getTime() || a.createdAt.getTime() - b.createdAt.getTime();
+  return stageDay(a.stageDate) - stageDay(b.stageDate) || a.createdAt.getTime() - b.createdAt.getTime();
 }
 
 /**
@@ -109,7 +124,7 @@ export function buildLifecycleStageTree(stages: LifecycleStageRecord[]): Lifecyc
  */
 export function latestLifecycleStage(stages: LifecycleStageRecord[], onOrBefore?: Date): LifecycleStageRecord | null {
   const candidates = onOrBefore
-    ? stages.filter((stage) => stage.stageDate.getTime() <= onOrBefore.getTime())
+    ? stages.filter((stage) => !isEarlierStageDay(onOrBefore, stage.stageDate))
     : stages;
 
   if (candidates.length === 0) {

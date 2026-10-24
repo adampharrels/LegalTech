@@ -4,6 +4,7 @@ import {
   buildLifecycleStageTree,
   coarseStatusForStage,
   coarseStatusForStages,
+  isEarlierStageDay,
   isLifecycleStageType,
   latestLifecycleStage,
   type LifecycleStageRecord,
@@ -133,4 +134,16 @@ test('coarseStatusForStages mirrors the latest-dated stage, and is null with no 
   assert.equal(coarseStatusForStages(stages), 'Settled');
   assert.equal(coarseStatusForStages([...stages, makeStage({ id: 'failed', status: 'Settlement failed', stageDate: new Date('2026-03-01') })]), 'Active');
   assert.equal(coarseStatusForStages([]), null);
+});
+
+test('stage dates compare by day, so a same-day manual stage follows a timestamped newswire stage', () => {
+  const newswire = makeStage({ id: 'newswire', status: 'Settled', stageDate: new Date('2026-10-24T03:00:00.000Z'), createdAt: new Date('2026-10-24T03:00:00.000Z') });
+  const manual = makeStage({ id: 'manual', parentId: 'newswire', status: 'Closed', stageDate: new Date('2026-10-24T00:00:00.000Z'), createdAt: new Date('2026-10-24T09:00:00.000Z') });
+
+  assert.equal(isEarlierStageDay(manual.stageDate, newswire.stageDate), false);
+  assert.equal(isEarlierStageDay(new Date('2026-10-23T00:00:00.000Z'), newswire.stageDate), true);
+  // Same day, so the later-entered manual stage is the latest one.
+  assert.equal(latestLifecycleStage([newswire, manual])?.id, 'manual');
+  assert.equal(coarseStatusForStages([newswire, manual]), 'Closed');
+  assert.equal(latestLifecycleStage([newswire], new Date('2026-10-24T00:00:00.000Z'))?.id, 'newswire');
 });

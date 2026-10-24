@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../db';
 import { syncCaseLifecycleStatus } from '../api-helpers';
-import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, isLifecycleStageType, latestLifecycleStage } from '../lifecycle-stages';
+import { LIFECYCLE_STAGE_TYPES, buildLifecycleStageTree, isEarlierStageDay, isLifecycleStageType, latestLifecycleStage } from '../lifecycle-stages';
 
 const router = Router();
 
@@ -163,7 +163,7 @@ router.post('/cases/:id/lifecycle-stages', async (req: Request, res: Response) =
         return res.status(400).json({ error: 'parentId must be an existing stage on this case' });
       }
 
-      if (parentStage.stageDate.getTime() > parsedDate.getTime()) {
+      if (isEarlierStageDay(parsedDate, parentStage.stageDate)) {
         return res.status(400).json({ error: 'stageDate cannot be earlier than the stage it is attached after' });
       }
     }
