@@ -69,3 +69,24 @@ test('planLifecycleSignalUpdates ignores newswire items for matters that are not
 
   assert.equal(updates.length, 0);
 });
+
+test('planLifecycleSignalUpdates proposes a failed settlement only when it changes the stored status', () => {
+  const item = makeItem({ headline: 'Clearview settlement collapses', excerpt: 'The settlement fell through.' });
+  const latest = new Map([[item.matterUrl!, item]]);
+
+  const fromSettled = planLifecycleSignalUpdates(latest, [makeTracked({ currentLifecycleStatus: 'Settled' })]);
+  assert.equal(fromSettled.length, 1);
+  assert.equal(fromSettled[0]?.detectedStatus, 'Settlement failed');
+
+  assert.equal(planLifecycleSignalUpdates(latest, [makeTracked({ currentLifecycleStatus: 'Active' })]).length, 0);
+});
+
+test('planLifecycleSignalUpdates does not re-propose coverage a person already reviewed', () => {
+  const latest = new Map([[makeItem().matterUrl!, makeItem()]]);
+  const reviewed = [{ caseId: 'case-1', eventDate: new Date('2026-05-20T00:00:00.000Z'), suggestedLifecycleStatus: 'Settled' }];
+
+  assert.equal(planLifecycleSignalUpdates(latest, [makeTracked()], reviewed).length, 0);
+
+  const newerCoverage = new Map([[makeItem().matterUrl!, makeItem({ publishedDate: new Date('2026-06-01T00:00:00.000Z') })]]);
+  assert.equal(planLifecycleSignalUpdates(newerCoverage, [makeTracked()], reviewed).length, 1);
+});

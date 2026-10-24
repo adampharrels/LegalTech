@@ -1,13 +1,16 @@
 /**
  * Compares newswire coverage against cases already being tracked, and
- * proposes lifecycle status updates when coverage reports a terminal
- * stage (Settled, Dismissed, Closed) that differs from the case's
- * current status. Pure planning logic only - callers are responsible
- * for fetching the newswire page, looking up tracked matters, and
- * writing the resulting updates as (unverified) Events.
+ * proposes lifecycle status updates when coverage reports a stage
+ * (Settled, Dismissed, Closed, or a failed settlement) that would change
+ * the case's current status. Pure planning logic only - callers are
+ * responsible for fetching the newswire page, looking up tracked matters,
+ * and writing the resulting updates as (unverified) Events.
  */
 
 import { detectLifecycleStage, type NewswireItem } from './case-ingestor';
+import { coarseStatusForStage } from './lifecycle-stages';
+
+export const LIFECYCLE_EVENT_TYPE = 'Reported lifecycle change';
 
 export interface TrackedMatter {
   caseId: string;
@@ -26,11 +29,24 @@ export interface LifecycleSignalUpdate {
   description: string;
 }
 
+/**
+ * A detector event a person has already confirmed or dismissed. The same
+ * coverage (same case, date, and suggested stage) is never proposed again,
+ * otherwise a dismissed suggestion would come back on every run.
+ */
+export interface ReviewedSignal {
+  caseId: string;
+  eventDate: Date;
+  suggestedLifecycleStatus: string | null;
+}
+
 export function planLifecycleSignalUpdates(
   latestItemsByMatter: Map<string, NewswireItem>,
-  trackedMatters: TrackedMatter[]
+  trackedMatters: TrackedMatter[],
+  reviewedSignals: ReviewedSignal[] = []
 ): LifecycleSignalUpdate[] {
   const trackedByUrl = new Map(trackedMatters.map((matter) => [matter.matterUrl, matter]));
+  const reviewedKeys = new Set(reviewedSignals.map((signal) => reviewedSignalKey(signal.caseId, signal.eventDate, signal.suggestedLifecycleStatus)));
   const updates: LifecycleSignalUpdate[] = [];
 
   for (const [matterUrl, item] of latestItemsByMatter) {
@@ -40,7 +56,13 @@ export function planLifecycleSignalUpdates(
     }
 
     const detectedStatus = detectLifecycleStage(`${item.headline} ${item.excerpt}`);
-    if (!detectedStatus || detectedStatus === tracked.currentLifecycleStatus) {
+    // Compared at the coarse level the case actually stores: a failed
+    // settlement on a case that is already Active changes nothing.
+    if (!detectedStatus || coarseStatusForStage(detectedStatus) === tracked.currentLifecycleStatus) {
+      continue;
+    }
+
+    if (reviewedKeys.has(reviewedSignalKey(tracked.caseId, item.publishedDate, detectedStatus))) {
       continue;
     }
 
@@ -58,4 +80,8 @@ export function planLifecycleSignalUpdates(
   }
 
   return updates;
+}
+
+function reviewedSignalKey(caseId: string, eventDate: Date, status: string | null) {
+  return `${caseId}|${eventDate.getTime()}|${status}`;
 }

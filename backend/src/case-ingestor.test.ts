@@ -253,19 +253,46 @@ test('detectLifecycleStage reads settlement, dismissal, and closure language', (
   assert.equal(detectLifecycleStage('A trial has been listed for next year.'), null);
 });
 
-test('detectLifecycleStage reads a failed settlement as Dismissed, not Settled', () => {
+test('detectLifecycleStage reads a failed settlement as Settlement failed, not Settled or Dismissed', () => {
+  assert.equal(detectLifecycleStage('The court rejected the settlement reached by the parties.'), 'Settlement failed');
+  assert.equal(
+    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
+    'Settlement failed'
+  );
+  assert.equal(detectLifecycleStage('The parties failed to reach a settlement at mediation.'), 'Settlement failed');
+});
+
+test('detectLifecycleStage still reads Dismissed when the case itself is dismissed after a failed settlement', () => {
   assert.equal(
     detectLifecycleStage('The proposed settlement was thrown out and the case was dismissed.'),
     'Dismissed'
   );
+  assert.equal(detectLifecycleStage('The class action against Clearview AI was dismissed.'), 'Dismissed');
+  assert.equal(detectLifecycleStage('The applicants discontinued the proceeding.'), 'Dismissed');
+});
+
+test('detectLifecycleStage does not treat a dismissed appeal, application, or settlement as the case being dismissed', () => {
   assert.equal(
-    detectLifecycleStage('The court rejected the settlement reached by the parties.'),
-    'Dismissed'
+    detectLifecycleStage('The appeal was dismissed, clearing the way for the class action to proceed.'),
+    null
   );
-  assert.equal(
-    detectLifecycleStage('The in-principle settlement fell through after the board withdrew approval.'),
-    'Dismissed'
-  );
+  assert.equal(detectLifecycleStage('The strike-out application was dismissed.'), null);
+  assert.equal(detectLifecycleStage('The class action settlement was dismissed.'), 'Settlement failed');
+});
+
+test('detectLifecycleStage needs a settlement to be reached, not just discussed or denied', () => {
+  assert.equal(detectLifecycleStage('Parties enter settlement talks.'), null);
+  assert.equal(detectLifecycleStage('The case has not settled and is listed for trial.'), null);
+  assert.equal(detectLifecycleStage('No settlement has been reached.'), null);
+  assert.equal(detectLifecycleStage('Clearview class action reaches settlement'), 'Settled');
+  assert.equal(detectLifecycleStage('The court approved the settlement.'), 'Settled');
+});
+
+test('detectLifecycleStage does not treat a concluded step as the proceeding closing', () => {
+  assert.equal(detectLifecycleStage('The hearing concluded on Friday.'), null);
+  assert.equal(detectLifecycleStage('The trial in the class action concluded last week.'), null);
+  assert.equal(detectLifecycleStage('Registration for the class action has closed.'), null);
+  assert.equal(detectLifecycleStage('The matter has concluded.'), 'Closed');
 });
 
 test('detectLifecycleStage does not let an unrelated dismissal in a later sentence override a real settlement', () => {

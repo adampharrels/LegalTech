@@ -3,7 +3,7 @@
  * Checks ClassActions.com.au newswire coverage against cases already
  * tracked (matched by their Source.url pointing at the same matter page),
  * and logs an unverified Event proposing a lifecycle status update when
- * coverage reports settlement, dismissal, or closure.
+ * coverage reports settlement, dismissal, closure, or a failed settlement.
  *
  * This never writes to Case.caseLifecycleStatus directly - a human
  * confirms the change through the lifecycle review admin page.
@@ -13,11 +13,10 @@
 import axios from 'axios';
 import { PrismaClient } from '@prisma/client';
 import { extractNewswireItems, latestNewswireItemsByMatter } from './case-ingestor';
-import { planLifecycleSignalUpdates, type TrackedMatter } from './lifecycle-signals';
+import { LIFECYCLE_EVENT_TYPE, planLifecycleSignalUpdates, type TrackedMatter } from './lifecycle-signals';
 
 const prisma = new PrismaClient();
 const NEWSWIRE_URL = 'https://classactions.com.au/newswire';
-const LIFECYCLE_EVENT_TYPE = 'Reported lifecycle change';
 
 async function main() {
   try {
@@ -49,7 +48,16 @@ async function main() {
       return;
     }
 
-    const updates = planLifecycleSignalUpdates(latest, trackedMatters);
+    const reviewedSignals = await prisma.event.findMany({
+      where: {
+        caseId: { in: trackedMatters.map((matter) => matter.caseId) },
+        eventType: LIFECYCLE_EVENT_TYPE,
+        verificationStatus: { in: ['Verified', 'Rejected'] },
+      },
+      select: { caseId: true, eventDate: true, suggestedLifecycleStatus: true },
+    });
+
+    const updates = planLifecycleSignalUpdates(latest, trackedMatters, reviewedSignals);
     console.log(`Checked ${trackedMatters.length} tracked matter(s); found ${updates.length} possible lifecycle change(s).`);
 
     let logged = 0;
