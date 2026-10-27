@@ -20,12 +20,12 @@ export default async function AdminPage() {
         <section>
           <ol className="entries">
             {cases.map((c) => (
-              <li key={c.id} className="entry">
+              <li key={c.id} className="entry has-status">
                 <EntryDate value={c.filingDate} />
                 <div>
                   <Link href={`/cases/${c.slug}`} className="entry-title">{c.caseName}</Link>
                   <p className="entry-meta">
-                    <span className="status">{c.caseLifecycleStatus}</span> · {c.reviewStatus} · {c.aiRelevanceStatus}
+                    {c.reviewStatus} · {c.aiRelevanceStatus}
                   </p>
                   <div className="actions">
                     <form action={async () => {
@@ -42,6 +42,7 @@ export default async function AdminPage() {
                     </form>
                   </div>
                 </div>
+                <div className="entry-status">{c.caseLifecycleStatus}</div>
               </li>
             ))}
           </ol>

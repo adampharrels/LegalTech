@@ -4,6 +4,15 @@ import { getCaseBySlug } from '@/actions/cases';
 import { updateSourceVerification } from '@/actions/admin';
 import LifecycleStageTree from '@/components/LifecycleStageTree';
 import { formatDate, summaryWithoutTitle } from '@/lib/format';
+import type { LifecycleStageNode } from '@/types/cases';
+
+function latestStage(nodes: LifecycleStageNode[]): LifecycleStageNode | null {
+  const all = (list: LifecycleStageNode[]): LifecycleStageNode[] => list.flatMap((node) => [node, ...all(node.children)]);
+  return all(nodes).reduce<LifecycleStageNode | null>(
+    (latest, node) => (!latest || node.stageDate > latest.stageDate ? node : latest),
+    null,
+  );
+}
 
 const VERIFICATION_STATUSES = ['Unverified', 'Verified', 'Needs checking', 'Broken'];
 const SOURCE_CONFIDENCE_LEVELS = ['Official court source', 'Official regulator publication', 'Court-adjacent source', 'Secondary source', 'Unknown'];
@@ -31,6 +40,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ slu
     || summaryWithoutTitle(caseData.summaryLong || caseData.summaryShort, caseData.caseName)
     || 'No summary yet. Use Summarise and tag in Admin to write one.';
   const whyItMatters = analysis?.whyItMatters || caseData.whyItMatters;
+  const stage = latestStage(caseData.lifecycleStages);
   const issues = caseData.issues.map((ci) => ci.issue.name);
   const legalAreas = caseData.legalAreas.map((cla) => cla.legalArea.name);
   const related = [
@@ -44,9 +54,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ slu
         <p className="label"><Link href="/cases">Cases</Link> / {caseData.courtName}</p>
         <h1 className="title">{caseData.caseName}</h1>
         <p className="muted">
-          {[caseData.neutralCitation, caseData.filingDate && formatDate(caseData.filingDate)].filter(Boolean).join(' · ')}
-          {(caseData.neutralCitation || caseData.filingDate) && ' · '}
-          <span className="status">{caseData.caseLifecycleStatus}</span>
+          {[caseData.neutralCitation, caseData.filingDate && `Filed ${formatDate(caseData.filingDate)}`].filter(Boolean).join(' · ')}
+        </p>
+        <p className="case-status">
+          <span className="label">Status</span>
+          <span className="case-status-value">{caseData.caseLifecycleStatus}</span>
+          {stage && (
+            <span className="muted small">
+              {stage.status === caseData.caseLifecycleStatus ? 'since' : `${stage.status},`} {formatDate(stage.stageDate)}
+            </span>
+          )}
         </p>
       </div>
 
@@ -65,11 +82,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ slu
             </>
           )}
 
-          {caseData.lifecycleStages.length > 0 && (
-            <>
-              <h2 className="label">Procedural history</h2>
-              <LifecycleStageTree nodes={caseData.lifecycleStages} />
-            </>
+          <h2 className="label">Procedural history</h2>
+          {caseData.lifecycleStages.length > 0 ? (
+            <LifecycleStageTree nodes={caseData.lifecycleStages} />
+          ) : (
+            <p className="muted">
+              No stages recorded yet. <Link href={`/admin/lifecycle?q=${encodeURIComponent(caseData.caseName)}&caseId=${caseData.id}`}>Add one in Lifecycle</Link>.
+            </p>
           )}
 
           {caseData.events.length > 0 && (

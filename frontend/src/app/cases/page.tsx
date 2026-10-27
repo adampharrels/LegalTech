@@ -99,15 +99,14 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
               {cases.map((c) => {
                 const summary = summaryWithoutTitle(c.summaryShort, c.caseName);
                 return (
-                <li key={c.id} className="entry">
+                <li key={c.id} className="entry has-status">
                   <EntryDate value={c.filingDate} />
                   <div>
                     <Link href={`/cases/${c.slug}`} className="entry-title">{c.caseName}</Link>
-                    <p className="entry-meta">
-                      {c.courtName} · <span className="status">{c.caseLifecycleStatus}</span>
-                    </p>
+                    <p className="entry-meta">{c.courtName}</p>
                     {summary && <p className="entry-summary">{summary}</p>}
                   </div>
+                  <div className="entry-status">{c.caseLifecycleStatus}</div>
                 </li>
                 );
               })}
