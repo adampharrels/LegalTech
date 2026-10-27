@@ -5,7 +5,9 @@ import {
   convertToCandidateFormat,
   detectLifecycleStage,
   extractClassActionsNewswireCases,
+  extractHallucinationDatabaseCases,
   extractNewswireItems,
+  googleNewsItemToCaseData,
   getMatchedKeywords,
   latestNewswireItemsByMatter,
   type CaseData,
@@ -285,4 +287,47 @@ test('detectLifecycleStage does not let an unrelated dismissal in a later senten
     detectLifecycleStage('The parties have reached a settlement. The court separately dismissed an unrelated motion.'),
     'Settled'
   );
+});
+
+const HALLUCINATION_CSV = [
+  'Case Name,Court,State(s),Date,Party(ies),AI Tool,Hallucination Items,Outcome,Monetary Penalty,Professional Sanction,Alleged,Vendor Disputed,Vendor Disputed Explanation,Pointer,Source,Details,Legal Field Primary,Legal Field Secondary',
+  'Heywood v State of Queensland,Queensland IRC,Australia,2026-08-24,Pro Se Litigant,Implied,"Fabricated: Case Law | Submissions cited cases that do not exist, or were incorrectly cited",Admonishment,,,,,,,/documents/2986/Heywood_v_State_of_Queensland_2026_QIRC_261_24_August_2026.pdf,,employment,',
+  'Smith v Jones,SC New Mexico,USA,2026-08-01,Lawyer,ChatGPT,Fabricated: Case Law | Fake cases,Sanction,,,,,,,https://example.test/us-case,,,',
+  'Neill-Fraser v Tasmania Parole Board,Supreme Court of Tasmania,Australia,2026-09-15,,Unidentified,Fabricated: Case Law | x,Gag-order condition set aside,,,,,,,https://news.example.test/gag-order,"A rationale document cited cases that did not exist.",,',
+].join('\n');
+
+test('extractHallucinationDatabaseCases keeps one country and maps rows into pre-screened cases', () => {
+  const cases = extractHallucinationDatabaseCases(HALLUCINATION_CSV, 'AI Hallucination Cases Database');
+
+  assert.equal(cases.length, 2);
+  const heywood = cases[0]!;
+  assert.equal(heywood.caseName, 'Heywood v State of Queensland');
+  assert.equal(heywood.url, 'https://www.damiencharlotin.com/documents/2986/Heywood_v_State_of_Queensland_2026_QIRC_261_24_August_2026.pdf');
+  assert.equal(heywood.citation, '[2026] QIRC 261');
+  assert.equal(heywood.publishedDate.toISOString(), '2026-08-24T00:00:00.000Z');
+  assert.equal(heywood.summary, 'Outcome: Admonishment. Submissions cited cases that do not exist, or were incorrectly cited');
+  assert.equal(heywood.courtLevel, 'State');
+  assert.ok(heywood.preScreened);
+  assert.match(heywood.source, /CC BY 4\.0/);
+
+  const neillFraser = cases[1]!;
+  assert.equal(neillFraser.citation, '');
+  assert.equal(neillFraser.url, 'https://news.example.test/gag-order');
+  assert.equal(neillFraser.summary, 'Outcome: Gag-order condition set aside. A rationale document cited cases that did not exist.');
+});
+
+test('googleNewsItemToCaseData splits the publisher off the headline and skips incomplete items', () => {
+  const caseData = googleNewsItemToCaseData({
+    title: 'Federal Court fines firm over AI-generated citations - Lawyers Weekly',
+    link: 'https://news.google.com/rss/articles/abc',
+    isoDate: '2026-10-20T01:00:00.000Z',
+    source: 'Lawyers Weekly',
+  }, 'Google News search');
+
+  assert.equal(caseData?.caseName, 'Federal Court fines firm over AI-generated citations');
+  assert.equal(caseData?.court, 'Federal Court of Australia');
+  assert.equal(caseData?.source, 'Lawyers Weekly (via Google News)');
+  assert.equal(caseData?.sourceConfidence, 'Secondary source');
+  assert.equal(caseData?.preScreened, undefined);
+  assert.equal(googleNewsItemToCaseData({ title: 'No link' }, 'Google News search'), null);
 });

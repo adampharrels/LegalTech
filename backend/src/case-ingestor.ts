@@ -6,6 +6,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import Parser from 'rss-parser';
+import { parse as parseCsv } from 'csv-parse/sync';
 import type { LifecycleStageType } from './lifecycle-stages';
 
 export interface CaseSource {
@@ -32,6 +33,9 @@ export interface CaseData {
   sourceCategory?: string;
   extractionMethod?: string;
   fetchedAt?: Date;
+  // Set by sources that only list AI-related matters, so ingestion can skip
+  // the relevance screen for them. aiRole is normalised by the caller.
+  preScreened?: { reason: string; aiRole: string };
 }
 
 export interface CandidateHints {
@@ -321,7 +325,9 @@ class HtmlLegalSignalSource implements CaseSource {
       }
 
       const publishedDate = extractDate(parentText);
-      const summary = truncate(parentText === title ? null : parentText, 700);
+      // The surrounding text usually starts with the link title itself.
+      const textAfterTitle = parentText.startsWith(title) ? parentText.slice(title.length).trim() : parentText;
+      const summary = truncate(textAfterTitle || null, 700);
       const sourceType = this.config.sourceType || 'Regulator release';
       const fetchedAt = new Date();
 
@@ -572,6 +578,170 @@ export function extractClassActionsNewswireCases(
   return cases;
 }
 
+const HALLUCINATION_DATABASE_PAGE = 'https://www.damiencharlotin.com/hallucinations/';
+const HALLUCINATION_DATABASE_CSV = 'https://www.damiencharlotin.com/hallucinations/hallucinations/download.csv';
+const HALLUCINATION_DATABASE_PUBLISHER = 'AI Hallucination Cases Database (Damien Charlotin, CC BY 4.0)';
+
+type HallucinationDatabaseRow = Record<string, string | undefined>;
+
+// The decision PDFs are named like "..._2026_QIRC_261_24_August_2026.pdf".
+function citationFromFileName(url: string) {
+  const fileName = decodeURIComponent(url.split('/').pop() || '').replace(/_/g, ' ');
+  const match = fileName.match(/\b(\d{4}) ([A-Z][A-Za-z]{1,10}) (\d{1,5})\b/);
+  return match ? `[${match[1]}] ${match[2]} ${match[3]}` : '';
+}
+
+/**
+ * Parse the AI Hallucination Cases Database CSV into cases for one country.
+ * Every row is a decision where a court or tribunal found AI-generated false
+ * content (usually fabricated citations), so the rows are pre-screened as
+ * AI-relevant. Licensed CC BY 4.0; the publisher name carries the attribution.
+ */
+export function extractHallucinationDatabaseCases(csvText: string, sourceName: string, country = 'Australia'): CaseData[] {
+  const rows = parseCsv(csvText, { columns: true, skip_empty_lines: true, bom: true }) as HallucinationDatabaseRow[];
+  const fetchedAt = new Date();
+  const cases: CaseData[] = [];
+
+  for (const row of rows) {
+    const caseName = cleanText(row['Case Name']);
+    const rawSource = cleanText(row['Source']);
+    if (!caseName || !rawSource || !cleanText(row['State(s)']).includes(country)) {
+      continue;
+    }
+
+    const url = makeAbsoluteUrl(HALLUCINATION_DATABASE_PAGE, rawSource);
+    const parsedDate = new Date(cleanText(row['Date']));
+    const publishedDate = Number.isNaN(parsedDate.getTime()) ? fetchedAt : parsedDate;
+    const court = cleanText(row['Court']) || 'Court not specified';
+    const outcome = cleanText(row['Outcome']);
+    // "Fabricated: Case Law | The submissions cited..." - keep the description.
+    const firstItem = cleanText(row['Hallucination Items']).split('||')[0]?.split('|').pop()?.trim() || '';
+    const description = cleanText(row['Details']) || firstItem;
+
+    cases.push({
+      caseName,
+      citation: citationFromFileName(url),
+      court,
+      url,
+      year: publishedDate.getFullYear(),
+      summary: truncate([outcome ? `Outcome: ${outcome}.` : null, description || null].filter(Boolean).join(' ') || null, 700),
+      fullText: truncate(cleanText(row['Hallucination Items']) || null, 2000),
+      publishedDate,
+      source: HALLUCINATION_DATABASE_PUBLISHER,
+      jurisdiction: country,
+      country,
+      courtLevel: /high court|federal|arta|administrative review|fair work/i.test(court) ? 'Federal' : 'State',
+      sourceType: 'Database entry',
+      sourceConfidence: 'Court-adjacent source',
+      sourceAdapterName: sourceName,
+      sourceCategory: 'Database',
+      extractionMethod: 'CSV',
+      fetchedAt,
+      preScreened: {
+        reason: 'Listed in the AI Hallucination Cases Database: the court or tribunal found AI-generated false content in material before it.',
+        aiRole: 'GENERATIVE_AI',
+      },
+    });
+  }
+
+  return cases;
+}
+
+export class HallucinationDatabaseIngestor implements CaseSource {
+  name = 'AI Hallucination Cases Database';
+
+  constructor(private country = 'Australia') {}
+
+  async fetchNewCases(): Promise<CaseData[]> {
+    try {
+      console.log(`\nFetching ${this.name}...`);
+      const response = await axios.get(HALLUCINATION_DATABASE_CSV, { timeout: 30000, responseType: 'text' });
+      const cases = extractHallucinationDatabaseCases(String(response.data), this.name, this.country);
+      console.log(`   Found ${cases.length} ${this.country} items`);
+      return cases;
+    } catch (error) {
+      console.error(`   ${this.name} fetch failed:`, error instanceof Error ? error.message : String(error));
+      return [];
+    }
+  }
+}
+
+// AI terms, litigation terms, and Australia: news coverage of an AI dispute
+// usually appears well before the matter is easy to find in a court database.
+const GOOGLE_NEWS_QUERY = '("artificial intelligence" OR "generative AI" OR ChatGPT OR deepfake OR "facial recognition" OR algorithm) '
+  + '(court OR tribunal OR lawsuit OR "class action" OR judge) (Australia OR Australian) when:30d';
+
+export interface GoogleNewsItem {
+  title?: string;
+  link?: string;
+  isoDate?: string;
+  source?: string;
+}
+
+/**
+ * Turn one Google News RSS item into a case lead. Titles end with
+ * " - Publisher", which is split off. Links are Google News redirect URLs;
+ * they are stable enough to deduplicate on and open in a browser.
+ */
+export function googleNewsItemToCaseData(item: GoogleNewsItem, sourceName: string): CaseData | null {
+  const rawTitle = cleanText(item.title);
+  if (!rawTitle || !item.link) {
+    return null;
+  }
+
+  const publisher = cleanText(item.source) || null;
+  const headline = publisher && rawTitle.endsWith(` - ${publisher}`)
+    ? rawTitle.slice(0, -(publisher.length + 3)).trim()
+    : rawTitle;
+  const parsedDate = item.isoDate ? new Date(item.isoDate) : new Date();
+  const publishedDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+
+  return {
+    caseName: headline,
+    citation: '',
+    court: extractCourtMention(headline, 'Not specified (news report)'),
+    url: item.link,
+    year: publishedDate.getFullYear(),
+    summary: null,
+    fullText: headline,
+    publishedDate,
+    source: publisher ? `${publisher} (via Google News)` : 'Google News',
+    jurisdiction: 'Australia',
+    country: 'Australia',
+    courtLevel: 'Media',
+    sourceType: 'Media coverage',
+    sourceConfidence: 'Secondary source',
+    sourceAdapterName: sourceName,
+    sourceCategory: 'Media',
+    extractionMethod: 'RSS',
+    fetchedAt: new Date(),
+  };
+}
+
+export class GoogleNewsIngestor implements CaseSource {
+  name = 'Google News search';
+  private parser = new Parser<Record<string, unknown>, GoogleNewsItem>({ customFields: { item: ['source'] } });
+
+  constructor(private query = GOOGLE_NEWS_QUERY, private limit = 20) {}
+
+  async fetchNewCases(): Promise<CaseData[]> {
+    try {
+      console.log(`\nFetching ${this.name}...`);
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(this.query)}&hl=en-AU&gl=AU&ceid=AU:en`;
+      const feed = await this.parser.parseURL(url);
+      const cases = feed.items
+        .map((item) => googleNewsItemToCaseData(item, this.name))
+        .filter((caseData): caseData is CaseData => caseData !== null)
+        .slice(0, this.limit);
+      console.log(`   Found ${cases.length} items`);
+      return cases;
+    } catch (error) {
+      console.error(`   ${this.name} fetch failed:`, error instanceof Error ? error.message : String(error));
+      return [];
+    }
+  }
+}
+
 class StaticLegalSignalSource implements CaseSource {
   name: string;
 
@@ -747,6 +917,8 @@ export class CaseIngestor {
       new OAICMediaCentreIngestor(),
       new ESafetyMediaReleaseIngestor(),
       new ClassActionsNewswireIngestor(),
+      new HallucinationDatabaseIngestor(),
+      new GoogleNewsIngestor(),
       new FederalCourtGuidanceIngestor(),
     ];
     this.sourceDelayMs = sourceDelayMs;
