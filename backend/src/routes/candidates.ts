@@ -251,7 +251,8 @@ router.post('/candidates/:id/reject', async (req: Request, res: Response) => {
       data: {
         candidateStatus: 'Rejected',
         rejectionReason: rejectionReason || 'Other',
-        reviewerNotes: reviewerNotes ? String(reviewerNotes) : null,
+        // Leave the ingestion notes in place unless the reviewer wrote new ones.
+        ...(reviewerNotes ? { reviewerNotes: String(reviewerNotes) } : {}),
         reviewedAt: new Date(),
       },
     });
