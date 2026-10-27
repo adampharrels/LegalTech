@@ -5,6 +5,44 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const ai = new GoogleGenAI(process.env.GEMINI_API_KEY ? { apiKey: process.env.GEMINI_API_KEY } : {});
+
+// Gemini's free tier allows 5 requests a minute, so calls are spaced out
+// (override with GEMINI_MIN_INTERVAL_MS on a paid tier). If a call is still
+// rate limited, wait the delay Gemini asks for and retry once.
+const MIN_INTERVAL_MS = Number(process.env.GEMINI_MIN_INTERVAL_MS ?? 12500);
+let nextCallAt = 0;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryDelayMs(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/\b429\b|RESOURCE_EXHAUSTED/.test(message)) {
+    return null;
+  }
+  const seconds = Number(message.match(/retry in ([\d.]+)s/i)?.[1] ?? 60);
+  return Math.ceil(seconds * 1000) + 1000;
+}
+
+async function generateContent(request: Parameters<typeof ai.models.generateContent>[0]) {
+  for (let attempt = 0; ; attempt++) {
+    const wait = nextCallAt - Date.now();
+    if (wait > 0) {
+      await sleep(wait);
+    }
+    nextCallAt = Date.now() + MIN_INTERVAL_MS;
+
+    try {
+      return await ai.models.generateContent(request);
+    } catch (error) {
+      const delay = retryDelayMs(error);
+      if (delay === null || attempt > 0) {
+        throw error;
+      }
+      console.warn(`   Gemini rate limit reached; retrying in ${Math.round(delay / 1000)}s`);
+      nextCallAt = Date.now() + delay;
+    }
+  }
+}
 export const LLM_MODEL_NAME = 'gemini-2.5-flash';
 export const LLM_PROMPT_VERSION = 'case-analysis-v1';
 export const LLM_RELEVANCE_PROMPT_VERSION = 'case-relevance-v1';
@@ -153,7 +191,7 @@ Summary/Snippet: ${caseData.summary || 'N/A'}
 Full Text: ${caseData.fullText || 'N/A'}
     `.trim();
 
-    const response = await ai.models.generateContent({
+    const response = await generateContent({
       model: LLM_MODEL_NAME,
       contents: prompt,
       config: {
@@ -201,7 +239,7 @@ Summary/Snippet: ${caseData.summary || 'N/A'}
 Full Text: ${caseData.fullText || 'N/A'}
     `.trim();
 
-    const response = await ai.models.generateContent({
+    const response = await generateContent({
       model: LLM_MODEL_NAME,
       contents: prompt,
       config: {

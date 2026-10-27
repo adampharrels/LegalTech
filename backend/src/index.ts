@@ -25,7 +25,13 @@ app.use('/api', lifecycleRoutes);
 // Note: Case ingestion is handled by the case-ingestor.ts module
 // Run: npm run ingest
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3001;
+// Express 5 also calls this on failure (e.g. the port is already in use), so
+// check for an error rather than always reporting success.
+app.listen(PORT, (error?: Error) => {
+  if (error) {
+    console.error(`Backend API failed to start on port ${PORT}: ${error.message}`);
+    process.exit(1);
+  }
   console.log(`Backend API running on http://localhost:${PORT}`);
 });

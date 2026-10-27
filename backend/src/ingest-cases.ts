@@ -5,11 +5,11 @@
  */
 
 import { CaseIngestor, convertToCandidateFormat, getMatchedKeywords, type CaseData } from './case-ingestor';
-import { LLM_MODEL_NAME, LLM_RELEVANCE_PROMPT_VERSION, classifyCaseRelevanceWithLLM, type LLMRelevanceResult } from './llm-processor';
+import { LLM_MODEL_NAME, LLM_RELEVANCE_PROMPT_VERSION, classifyCaseRelevanceWithLLM, normaliseAiRole, type LLMRelevanceResult } from './llm-processor';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-type ScreeningMethod = 'llm' | 'heuristic';
+type ScreeningMethod = 'source' | 'llm' | 'heuristic';
 
 function hasSpecificCitation(citation: string | null | undefined) {
   return Boolean(citation && /\[\d{4}\]\s+[A-Z]+\s+\d+/i.test(citation));
@@ -49,9 +49,11 @@ function buildReviewerNotes(
   screeningMethod: ScreeningMethod
 ) {
   const keywordNote = `Matched keywords: ${matchedKeywords.length ? matchedKeywords.join(', ') : 'none'}.`;
-  const screeningNote = screeningMethod === 'llm'
-    ? `Relevance screened by ${LLM_MODEL_NAME} (${LLM_RELEVANCE_PROMPT_VERSION}).`
-    : 'Relevance screened by heuristic fallback; LLM classification was unavailable.';
+  const screeningNote = screeningMethod === 'source'
+    ? 'Relevance taken from the source, which only lists AI-related matters; LLM classification skipped.'
+    : screeningMethod === 'llm'
+      ? `Relevance screened by ${LLM_MODEL_NAME} (${LLM_RELEVANCE_PROMPT_VERSION}).`
+      : 'Relevance screened by heuristic fallback; LLM classification was unavailable.';
 
   return [
     keywordNote,
@@ -109,13 +111,28 @@ async function main() {
           continue;
         }
 
-        console.log(`   Classifying AI relevance: ${caseData.caseName}`);
-        const llmRelevance = await classifyCaseRelevanceWithLLM(caseData);
-        const relevance = llmRelevance || heuristicRelevance(caseData, matchedKeywords);
-        const screeningMethod: ScreeningMethod = llmRelevance ? 'llm' : 'heuristic';
-        const classifierStatus = llmRelevance
-          ? (relevance.aiRelevant ? 'Relevant' : 'Not relevant')
-          : (matchedKeywords.length > 0 ? 'Heuristic review needed' : 'Heuristic archived');
+        let relevance: LLMRelevanceResult;
+        let screeningMethod: ScreeningMethod;
+        if (caseData.preScreened) {
+          relevance = {
+            aiRelevant: true,
+            confidence: 1,
+            reason: caseData.preScreened.reason,
+            aiRole: normaliseAiRole(caseData.preScreened.aiRole, true),
+          };
+          screeningMethod = 'source';
+        } else {
+          console.log(`   Classifying AI relevance: ${caseData.caseName}`);
+          const llmRelevance = await classifyCaseRelevanceWithLLM(caseData);
+          relevance = llmRelevance || heuristicRelevance(caseData, matchedKeywords);
+          screeningMethod = llmRelevance ? 'llm' : 'heuristic';
+        }
+
+        const classifierStatus = screeningMethod === 'source'
+          ? 'Pre-screened by source'
+          : screeningMethod === 'llm'
+            ? (relevance.aiRelevant ? 'Relevant' : 'Not relevant')
+            : (matchedKeywords.length > 0 ? 'Heuristic review needed' : 'Heuristic archived');
 
         const candidateHints = {
           aiRelevanceStatus: relevance.aiRelevant ? 'Relevant' : 'Not relevant',

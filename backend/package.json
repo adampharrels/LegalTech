@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test -r ts-node/register src/*.test.ts",
     "ingest": "ts-node src/ingest-cases.ts",
-    "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts"
+    "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts",
+    "pipeline": "bash scripts/run-pipeline.sh",
+    "schedule:install": "bash scripts/install-schedule.sh",
+    "schedule:remove": "bash scripts/remove-schedule.sh"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -23,6 +26,7 @@
     "axios": "^1.16.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
+    "csv-parse": "^5.5.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsdom": "^29.1.1",

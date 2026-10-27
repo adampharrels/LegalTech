@@ -24,8 +24,7 @@ This repository is structured as a monorepo containing:
 ### Frontend (`/frontend`)
 - **Framework:** Next.js 14+ (App Router)
 - **Language:** TypeScript
-- **Styling:** Tailwind CSS & Vanilla CSS (modern gradients, glassmorphism)
-- **UI Components:** `lucide-react` for premium, responsive design
+- **Styling:** one plain CSS file; Newsreader and Source Sans 3 via `next/font`; light/dark follows the system setting
 
 ### Backend (`/backend`)
 - **Server:** Express.js
@@ -86,14 +85,20 @@ The project uses Prisma as its ORM. The following commands can be run from the r
 
 ## Ingesting New Cases
 
-Run ingestion from the backend package:
+Run the pipeline (ingestion, then lifecycle signal detection) from the project root:
+
+```bash
+npm run pipeline
+```
+
+Output is appended to `backend/logs/pipeline.log`. To run it every day at 7am (macOS launchd; a run missed while the Mac is asleep happens on wake):
 
 ```bash
 cd backend
-npm run ingest
+npm run schedule:install   # remove with: npm run schedule:remove
 ```
 
-The ingestion command fetches official Australian court, regulator, and guidance sources, applies the keyword and LLM relevance screens, and creates triage candidates instead of publishing cases directly. Review new candidates at `/admin/triage`; accepting a candidate creates the case record and links the primary source.
+Ingestion fetches Australian court, regulator, guidance, and AI-specific sources, applies the keyword and LLM relevance screens, and creates triage candidates instead of publishing cases directly. Review new candidates at `/admin/triage`; accepting a candidate creates the case record and links the primary source.
 
 Each ingested candidate stores evidence for review, including matched keywords, source adapter name, source category, extraction method, LLM screening status, duplicate check result, and fetch timestamp.
 
@@ -107,6 +112,9 @@ Current ingestion adapters include:
 - OAIC media centre
 - eSafety media releases
 - Federal Court generative AI practice guidance
+- ClassActions.com.au newswire
+- [AI Hallucination Cases Database](https://www.damiencharlotin.com/hallucinations/) (Australian decisions; CC BY 4.0, pre-screened as AI-relevant)
+- Google News search for Australian AI litigation coverage
 
 ## Project Structure
 

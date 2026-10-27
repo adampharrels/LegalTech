@@ -16,7 +16,8 @@
     "db:seed": "cd backend && npx prisma db seed",
     "db:reset": "cd backend && rm -f prisma/dev.db && npx prisma migrate deploy && npx prisma db seed",
     "db:studio": "cd backend && npx prisma studio",
-    "ingest": "cd backend && npm run ingest"
+    "ingest": "cd backend && npm run ingest",
+    "pipeline": "cd backend && npm run pipeline"
   },
   "keywords": [
     "ai",

@@ -191,6 +191,23 @@ export async function getLifecycleEvents(verificationStatus?: string): Promise<L
   return response.json() as Promise<LifecycleEvent[]>;
 }
 
+// Lifecycle forms report failures (e.g. a stage dated before its parent, or
+// a signal someone already reviewed) back on the page, rather than throwing.
+function lifecyclePageUrl(formData: FormData, error?: string) {
+  const params = new URLSearchParams();
+  const q = String(formData.get('q') || '');
+  const caseId = String(formData.get('caseId') || '');
+  if (q) params.set('q', q);
+  if (caseId) params.set('caseId', caseId);
+  if (error) params.set('error', error);
+  return `/admin/lifecycle${params.toString() ? `?${params.toString()}` : ''}`;
+}
+
+async function errorMessage(response: Response, fallback: string) {
+  const body = await response.json().catch(() => null);
+  return typeof body?.error === 'string' ? body.error : fallback;
+}
+
 export async function verifyLifecycleEvent(formData: FormData) {
   const eventId = String(formData.get('eventId') || '');
   const lifecycleStatus = formData.get('lifecycleStatus');
@@ -202,13 +219,14 @@ export async function verifyLifecycleEvent(formData: FormData) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to verify lifecycle event');
+    redirect(lifecyclePageUrl(formData, await errorMessage(response, 'Could not confirm the signal')));
   }
 
   revalidatePath('/admin/lifecycle');
   revalidatePath('/admin');
   revalidatePath('/cases');
   revalidatePath('/dashboard');
+  redirect(lifecyclePageUrl(formData));
 }
 
 export async function dismissLifecycleEvent(formData: FormData) {
@@ -219,10 +237,11 @@ export async function dismissLifecycleEvent(formData: FormData) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to dismiss lifecycle event');
+    redirect(lifecyclePageUrl(formData, await errorMessage(response, 'Could not dismiss the signal')));
   }
 
   revalidatePath('/admin/lifecycle');
+  redirect(lifecyclePageUrl(formData));
 }
 
 export async function getLifecycleStages(caseId: string): Promise<LifecycleStageTree> {
@@ -253,11 +272,12 @@ export async function addLifecycleStage(formData: FormData) {
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error || 'Failed to add lifecycle stage');
+    redirect(lifecyclePageUrl(formData, await errorMessage(response, 'Could not add the stage')));
   }
 
   revalidatePath('/admin/lifecycle');
+  revalidatePath('/cases');
+  redirect(lifecyclePageUrl(formData));
 }
 
 export async function createBasicCase(formData: FormData) {

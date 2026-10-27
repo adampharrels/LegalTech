@@ -164,7 +164,7 @@ router.post('/cases/:id/lifecycle-stages', async (req: Request, res: Response) =
       }
 
       if (isEarlierStageDay(parsedDate, parentStage.stageDate)) {
-        return res.status(400).json({ error: 'stageDate cannot be earlier than the stage it is attached after' });
+        return res.status(400).json({ error: 'The date is earlier than the stage it comes after.' });
       }
     }
 
