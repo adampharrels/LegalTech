@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Newsreader, Source_Sans_3 } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/Header';
+import { THEME_INIT_SCRIPT } from '@/lib/theme';
 
 const serif = Newsreader({ subsets: ['latin'], variable: '--font-serif', display: 'swap', style: ['normal', 'italic'] });
 const sans = Source_Sans_3({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
@@ -18,7 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-AU" className={`${serif.variable} ${sans.variable}`}>
+    // The init script sets data-theme before React hydrates, so the attribute can differ from the server render.
+    <html lang="en-AU" className={`${serif.variable} ${sans.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <Header />
         <main className="wrap">{children}</main>

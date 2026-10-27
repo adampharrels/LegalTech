@@ -83,12 +83,13 @@ export default async function LifecyclePage({
         ) : (
           <ol className="entries" style={{ marginTop: 24 }}>
             {searchResults.map((c) => (
-              <li key={c.id} className="entry">
+              <li key={c.id} className="entry has-status">
                 <EntryDate value={c.filingDate} />
                 <div>
                   <Link href={`/admin/lifecycle?q=${encodeURIComponent(query)}&caseId=${c.id}`} className="entry-title">{c.caseName}</Link>
-                  <p className="entry-meta"><span className="status">{c.caseLifecycleStatus}</span></p>
+                  <p className="entry-meta">{c.courtName}</p>
                 </div>
+                <div className="entry-status">{c.caseLifecycleStatus}</div>
               </li>
             ))}
           </ol>
