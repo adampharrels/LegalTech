@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import ThemeSwitch from './ThemeSwitch';
 
 const LINKS = [
   { href: '/cases', label: 'Cases' },
@@ -29,6 +30,7 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
+          <ThemeSwitch />
         </nav>
       </div>
     </header>
