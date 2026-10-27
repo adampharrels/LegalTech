@@ -1,57 +1,38 @@
-"use client";
+'use client';
 
-import { Download } from "lucide-react";
-import type { CaseSummary } from "@/types/cases";
+import type { CaseSummary } from '@/types/cases';
+
+function csvCell(value: string | number | null | undefined) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
 
 export default function ExportButton({ cases }: { cases: CaseSummary[] }) {
   const handleExport = () => {
-    if (!cases || cases.length === 0) return;
+    if (cases.length === 0) return;
 
-    const headers = [
-      "Case Name",
-      "Jurisdiction",
-      "Court",
-      "Lifecycle Status",
-      "Review Status",
-      "AI Relevance",
-      "Materiality Level",
-      "Materiality Score",
-      "Filing Date",
-      "Short Summary"
-    ];
+    const headers = ['Case name', 'Jurisdiction', 'Court', 'Status', 'Review', 'AI relevance', 'Materiality', 'Filing date', 'Summary'];
+    const rows = cases.map((c) => [
+      c.caseName,
+      c.jurisdiction,
+      c.courtName,
+      c.caseLifecycleStatus,
+      c.reviewStatus,
+      c.aiRelevanceStatus,
+      c.materialityLevel,
+      c.filingDate ? c.filingDate.slice(0, 10) : '',
+      c.summaryShort,
+    ].map(csvCell).join(','));
 
-    const rows = cases.map(c => [
-      `"${(c.caseName || '').replace(/"/g, '""')}"`,
-      `"${c.jurisdiction || ''}"`,
-      `"${c.courtName || ''}"`,
-      `"${c.caseLifecycleStatus || ''}"`,
-      `"${c.reviewStatus || ''}"`,
-      `"${c.aiRelevanceStatus || ''}"`,
-      `"${c.materialityLevel || ''}"`,
-      `"${c.materialityScoreValue || ''}"`,
-      c.filingDate ? `"${new Date(c.filingDate).toLocaleDateString()}"` : '""',
-      `"${(c.summaryShort || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `ai_cases_export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
+    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ai_cases_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
   };
 
   return (
-    <button 
-      onClick={handleExport}
-      className="btn-secondary"
-      style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-    >
-      <Download size={16} />
+    <button type="button" className="link" onClick={handleExport}>
       Export CSV
     </button>
   );

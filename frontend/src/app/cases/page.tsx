@@ -1,111 +1,120 @@
 import Link from 'next/link';
 import { getCases, getIssues, getLegalAreas } from '@/actions/cases';
-import FilterSidebar from '@/components/FilterSidebar';
+import EntryDate from '@/components/EntryDate';
+import { summaryWithoutTitle } from '@/lib/format';
 import ExportButton from './ExportButton';
-import { ArrowRight, Calendar, MapPin, Scale } from 'lucide-react';
 
-export default async function CasesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    query?: string;
-    issueSlug?: string | string[];
-    legalAreaSlug?: string | string[];
-    jurisdiction?: string | string[];
-    materialityScore?: string | string[];
-    materialityLevel?: string | string[];
-    statusPublic?: string | string[];
-    caseLifecycleStatus?: string | string[];
-    reviewStatus?: string | string[];
-    aiRelevanceStatus?: string | string[];
-    dateFrom?: string;
-    dateTo?: string;
-    sort?: string;
-  }>;
-}) {
+type SearchParams = {
+  query?: string;
+  caseLifecycleStatus?: string;
+  issueSlug?: string;
+  legalAreaSlug?: string;
+  jurisdiction?: string;
+  sort?: string;
+};
+
+const STATUSES = ['Active', 'Pending', 'Settled', 'Dismissed', 'Closed'];
+const SORTS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'recently-updated', label: 'Recently updated' },
+  { value: 'name', label: 'By name' },
+];
+
+export default async function CasesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const cases = await getCases({ ...params, hideNotRelevant: true });
-  const issues = await getIssues();
-  const legalAreas = await getLegalAreas();
+  const [cases, allCases, issues, legalAreas] = await Promise.all([
+    getCases({ ...params, hideNotRelevant: true }),
+    getCases({ hideNotRelevant: true }),
+    getIssues(),
+    getLegalAreas(),
+  ]);
+  // Only offer a jurisdiction filter once there is more than one to pick from.
+  const jurisdictions = [...new Set(allCases.map((c) => c.jurisdiction))].sort();
+  const isFiltered = Object.values(params).some(Boolean);
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex' }}>
-      <div className="flex justify-between items-center" style={{ flexWrap: 'wrap', gap: '1rem' }}>
-        <div className="flex-col gap-2" style={{ display: 'flex' }}>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Case Explorer</h1>
-          <p className="text-muted" style={{ maxWidth: '42rem' }}>
-            Browse and filter through our curated database of AI-related litigation and tribunal decisions.
-          </p>
-        </div>
-        <ExportButton cases={cases} />
+    <>
+      <div className="page-head">
+        <h1>Cases</h1>
+        <p className="lede">Court and tribunal matters where AI is material.</p>
       </div>
 
-      <div className="flex gap-8" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        
-        {/* Sidebar with Filters */}
-        <aside style={{ width: '100%', maxWidth: '16rem', flexShrink: 0 }}>
-          <FilterSidebar issues={issues} legalAreas={legalAreas} />
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex-col gap-4" style={{ display: 'flex', flex: 1, minWidth: '300px' }}>
-          {cases.length === 0 ? (
-            <div className="glass-panel flex-col items-center justify-center text-center gap-4" style={{ display: 'flex', padding: '3rem' }}>
-              <Scale size={48} className="text-muted" style={{ opacity: 0.5 }} />
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 500 }}>No cases found</h3>
-              <p className="text-muted">Try adjusting your filters or check back later.</p>
-            </div>
-          ) : (
-            cases.map((c) => (
-              <Link href={`/cases/${c.slug}`} key={c.id} style={{ display: 'block' }}>
-                <div className="glass-panel surface-panel" style={{ marginBottom: '1rem', padding: '1.5rem', cursor: 'pointer' }}>
-                  <div className="flex justify-between" style={{ alignItems: 'flex-start', gap: '1rem' }}>
-                    <div>
-                      <h2 className="hover-text-accent" style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {c.caseName}
-                      </h2>
-                      <div className="flex items-center gap-4 text-muted mt-4" style={{ fontSize: '0.875rem' }}>
-                        {c.filingDate && (
-                          <span className="flex items-center gap-2">
-                            <Calendar size={16} />
-                            {new Date(c.filingDate).toLocaleDateString()}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-2">
-                          <MapPin size={16} />
-                          {c.jurisdiction}
-                        </span>
-                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(255, 255, 255, 0.1)', fontSize: '0.75rem' }}>
-                          {c.caseLifecycleStatus}
-                        </span>
-                        <span style={{ padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
-                          {c.reviewStatus}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <ArrowRight size={20} color="var(--accent-primary)" />
-                    </div>
-                  </div>
-                  <p className="text-muted mt-4" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {c.summaryShort}
-                  </p>
-                  
-                  {c.issues.length > 0 && (
-                    <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
-                      {c.issues.map((ci) => (
-                        <span key={ci.issueId} style={{ padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 500, border: '1px solid var(--border-color)' }}>
-                          {ci.issue.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))
+      <div className="split">
+        <form action="/cases" className="filters">
+          <label className="field">
+            <span>Search</span>
+            <input type="search" name="query" defaultValue={params.query || ''} />
+          </label>
+          <label className="field">
+            <span>Status</span>
+            <select name="caseLifecycleStatus" defaultValue={params.caseLifecycleStatus || ''}>
+              <option value="">Any</option>
+              {STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Issue</span>
+            <select name="issueSlug" defaultValue={params.issueSlug || ''}>
+              <option value="">Any</option>
+              {issues.map((issue) => <option key={issue.slug} value={issue.slug}>{issue.name}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Area of law</span>
+            <select name="legalAreaSlug" defaultValue={params.legalAreaSlug || ''}>
+              <option value="">Any</option>
+              {legalAreas.map((area) => <option key={area.slug} value={area.slug}>{area.name}</option>)}
+            </select>
+          </label>
+          {jurisdictions.length > 1 && (
+            <label className="field">
+              <span>Jurisdiction</span>
+              <select name="jurisdiction" defaultValue={params.jurisdiction || ''}>
+                <option value="">Any</option>
+                {jurisdictions.map((jurisdiction) => <option key={jurisdiction} value={jurisdiction}>{jurisdiction}</option>)}
+              </select>
+            </label>
           )}
-        </div>
+          <label className="field">
+            <span>Order</span>
+            <select name="sort" defaultValue={params.sort || 'newest'}>
+              {SORTS.map((sort) => <option key={sort.value} value={sort.value}>{sort.label}</option>)}
+            </select>
+          </label>
+          <div className="actions">
+            <button type="submit" className="btn">Apply</button>
+            {isFiltered && <Link href="/cases" className="small">Clear</Link>}
+          </div>
+        </form>
+
+        <section>
+          <p className="small muted">
+            {cases.length} {cases.length === 1 ? 'case' : 'cases'} · <ExportButton cases={cases} />
+          </p>
+          {cases.length === 0 ? (
+            <p className="prose">No cases match these filters.</p>
+          ) : (
+            <ol className="entries">
+              {cases.map((c) => {
+                const summary = summaryWithoutTitle(c.summaryShort, c.caseName);
+                return (
+                <li key={c.id} className="entry">
+                  <EntryDate value={c.filingDate} />
+                  <div>
+                    <Link href={`/cases/${c.slug}`} className="entry-title">{c.caseName}</Link>
+                    <p className="entry-meta">
+                      {c.courtName} · <span className="status">{c.caseLifecycleStatus}</span>
+                    </p>
+                    {summary && <p className="entry-summary">{summary}</p>}
+                  </div>
+                </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,115 +1,81 @@
-import { getCases, getIssues } from '@/actions/cases';
-import { Activity, Globe, Scale, BookOpen } from 'lucide-react';
+import Link from 'next/link';
+import { getCases } from '@/actions/cases';
+import { getCandidates, getLifecycleEvents } from '@/actions/admin';
 
-export default async function DashboardPage() {
-  const cases = await getCases({ hideNotRelevant: true });
-  const issuesList = await getIssues();
-  
-  const totalCases = cases.length;
-  const activeCases = cases.filter((c) => c.caseLifecycleStatus === 'Active').length;
-  const highMateriality = cases.filter((c) => c.materialityLevel === 'High').length;
+function countBy(values: string[]) {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
 
-  // Simple aggregation for jurisdictions
-  const jurisdictionsMap = cases.reduce((acc: Record<string, number>, c) => {
-    acc[c.jurisdiction] = (acc[c.jurisdiction] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const topJurisdictions = Object.entries(jurisdictionsMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+function BarTable({ rows, empty }: { rows: Array<[string, number]>; empty: string }) {
+  if (rows.length === 0) return <p className="muted">{empty}</p>;
+  const max = Math.max(...rows.map(([, count]) => count));
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex' }}>
-      <div className="flex-col gap-2" style={{ display: 'flex' }}>
-        <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Intelligence Dashboard</h1>
-        <p className="text-muted" style={{ maxWidth: '42rem' }}>
-          High-level metrics and trends in global AI litigation.
-        </p>
+    <table className="bars">
+      <tbody>
+        {rows.map(([name, count]) => (
+          <tr key={name}>
+            <td>{name}</td>
+            <td className="bar-cell"><span className="bar" style={{ width: `${(count / max) * 100}%` }} /></td>
+            <td className="num">{count}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export default async function DashboardPage() {
+  const [cases, candidates, pendingSignals] = await Promise.all([
+    getCases({ hideNotRelevant: true }),
+    getCandidates('Needs human triage'),
+    getLifecycleEvents('Unverified'),
+  ]);
+
+  const active = cases.filter((c) => c.caseLifecycleStatus === 'Active').length;
+  const byIssue = countBy(cases.flatMap((c) => c.issues.map((ci) => ci.issue.name)));
+  const byCourt = countBy(cases.map((c) => c.courtName)).slice(0, 8);
+  const byStatus = countBy(cases.map((c) => c.caseLifecycleStatus));
+
+  return (
+    <>
+      <div className="page-head">
+        <h1>Dashboard</h1>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-        <div className="glass-panel surface-panel">
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-primary)' }}>
-              <Scale size={24} />
-            </div>
-            <h3 className="card-label">Total Cases</h3>
-          </div>
-          <div className="card-value">{totalCases}</div>
+      <div className="stats">
+        <div className="stat">
+          <span className="stat-num">{cases.length}</span>
+          <span className="stat-label label">Cases tracked</span>
         </div>
-
-        <div className="glass-panel surface-panel">
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#22c55e' }}>
-              <Activity size={24} />
-            </div>
-            <h3 className="card-label">Active Disputes</h3>
-          </div>
-          <div className="card-value">{activeCases}</div>
+        <div className="stat">
+          <span className="stat-num">{active}</span>
+          <span className="stat-label label">Active</span>
         </div>
-
-        <div className="glass-panel surface-panel">
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#ef4444' }}>
-              <Globe size={24} />
-            </div>
-            <h3 className="card-label">High Materiality</h3>
-          </div>
-          <div className="card-value">{highMateriality}</div>
+        <div className="stat">
+          <span className="stat-num">{candidates.length}</span>
+          <Link href="/admin/triage" className="stat-label label">Waiting for triage</Link>
         </div>
-        
-        <div className="glass-panel surface-panel">
-          <div className="flex items-center gap-4 mb-4">
-            <div style={{ padding: '0.75rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', color: '#c4b5fd' }}>
-              <BookOpen size={24} />
-            </div>
-            <h3 className="card-label">Issues Tracked</h3>
-          </div>
-          <div className="card-value">{issuesList.length}</div>
+        <div className="stat">
+          <span className="stat-num">{pendingSignals.length}</span>
+          <Link href="/admin/lifecycle" className="stat-label label">Status changes to review</Link>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
-        {/* Simple Bar Chart Representation for Jurisdictions */}
-        <div className="glass-panel">
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Top Jurisdictions</h3>
-          <div className="flex-col gap-6" style={{ display: 'flex' }}>
-            {topJurisdictions.map(([j, count]) => {
-              const max = Math.max(...topJurisdictions.map((x) => x[1]));
-              const width = Math.max(15, (count / max) * 100);
-              return (
-                <div key={j} className="flex-col gap-2" style={{ display: 'flex' }}>
-                  <div className="flex justify-between" style={{ fontSize: '0.875rem' }}>
-                    <span style={{ fontWeight: 500 }}>{j}</span>
-                    <span className="text-muted">{count} Case{count !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div style={{ width: '100%', height: '0.75rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-                    <div 
-                      style={{ height: '100%', background: 'var(--accent-primary)', width: `${width}%`, borderRadius: 'var(--radius-full)' }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
-            {topJurisdictions.length === 0 && (
-              <p className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.875rem' }}>No data available.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Info Box */}
-        <div className="glass-panel flex-col items-center justify-center text-center gap-4" style={{ display: 'flex' }}>
-           <div style={{ width: '3rem', height: '3rem', background: 'rgba(148, 163, 184, 0.12)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-primary)' }}>
-              <Activity size={32} />
-           </div>
-           <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Trend Analysis</h3>
-           <p className="text-muted" style={{ maxWidth: '24rem' }}>
-             Additional charts can be added here for filing timelines, review status, and source verification coverage.
-           </p>
-        </div>
+      <div className="columns">
+        <section>
+          <h2 className="label">By issue</h2>
+          <BarTable rows={byIssue} empty="No cases tagged yet. Summarise a case in Admin to tag it." />
+        </section>
+        <section>
+          <h2 className="label">By court</h2>
+          <BarTable rows={byCourt} empty="No cases yet." />
+          <h2 className="label">By status</h2>
+          <BarTable rows={byStatus} empty="No cases yet." />
+        </section>
       </div>
-    </div>
+    </>
   );
 }

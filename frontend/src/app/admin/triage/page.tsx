@@ -1,25 +1,10 @@
-import Link from 'next/link';
 import { acceptCandidate, createCandidate, getCandidates, rejectCandidate } from '@/actions/admin';
+import EntryDate from '@/components/EntryDate';
+import { summaryWithoutTitle } from '@/lib/format';
 
-const inputStyle = {
-  width: '100%',
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '0.5rem 0.75rem',
-  fontSize: '0.875rem',
-  color: 'var(--text-primary)',
-  outline: 'none',
-  marginBottom: '1rem'
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '0.875rem',
-  fontWeight: 500,
-  marginBottom: '0.25rem',
-  color: 'var(--text-secondary)'
-};
+const REJECTION_REASONS = ['Not AI-related', 'Duplicate', 'Insufficient source', 'Wrong jurisdiction', 'Too speculative', 'Other'];
+const SOURCE_CONFIDENCE_LEVELS = ['Official court source', 'Official regulator publication', 'Court-adjacent source', 'Secondary source', 'Unknown'];
+const REVIEWED = ['Accepted', 'Rejected', 'Archived'];
 
 function parseMatchedKeywords(value: string | null) {
   if (!value) return [];
@@ -33,252 +18,104 @@ function parseMatchedKeywords(value: string | null) {
 
 export default async function TriagePage() {
   const candidates = await getCandidates();
-  const openCandidates = candidates.filter((candidate) => !['Accepted', 'Rejected', 'Archived'].includes(candidate.candidateStatus));
-  const reviewedCandidates = candidates.filter((candidate) => ['Accepted', 'Rejected', 'Archived'].includes(candidate.candidateStatus));
-  const archivedCandidates = candidates.filter((candidate) => candidate.candidateStatus === 'Archived');
+  const open = candidates.filter((candidate) => !REVIEWED.includes(candidate.candidateStatus));
+  const reviewed = candidates.filter((candidate) => REVIEWED.includes(candidate.candidateStatus));
 
   return (
-    <div className="flex-col gap-8" style={{ display: 'flex' }}>
-      <div className="flex justify-between items-center" style={{ gap: '1rem', flexWrap: 'wrap' }}>
-        <div className="flex-col gap-2" style={{ display: 'flex' }}>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 700 }}>Triage Queue</h1>
-          <p className="text-muted" style={{ maxWidth: '46rem' }}>
-            Review source discoveries before they become tracked AI litigation cases.
-          </p>
-        </div>
-        <Link href="/admin" className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-          Admin
-        </Link>
+    <>
+      <div className="page-head">
+        <h1>Triage</h1>
+        <p className="lede">{open.length === 0 ? 'Nothing waiting for review.' : `${open.length} found by the pipeline, waiting for review.`}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 0.8fr) minmax(320px, 1.4fr)', gap: '2rem', alignItems: 'start' }}>
-        <section className="glass-panel surface-panel">
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>Add Candidate</h2>
-          <form action={createCandidate}>
-            <label style={labelStyle}>Case Name</label>
-            <input name="caseName" required style={inputStyle} placeholder="Potential case name" />
+      <div className="article">
+        <section>
+          {open.length > 0 && (
+            <ol className="entries">
+              {open.map((candidate) => {
+                const keywords = parseMatchedKeywords(candidate.matchedKeywords);
+                const summary = summaryWithoutTitle(candidate.summaryShort, candidate.caseName);
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>Neutral Citation</label>
-                <input name="neutralCitation" style={inputStyle} placeholder="[2026] FCA 123" />
-              </div>
-              <div>
-                <label style={labelStyle}>Docket Number</label>
-                <input name="docketNumber" style={inputStyle} placeholder="Optional docket" />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>Jurisdiction</label>
-                <input name="jurisdiction" required style={inputStyle} placeholder="Australia" />
-              </div>
-              <div>
-                <label style={labelStyle}>Country</label>
-                <input name="country" required style={inputStyle} placeholder="Australia" />
-              </div>
-            </div>
-
-            <label style={labelStyle}>Court Name</label>
-            <input name="courtName" required style={inputStyle} placeholder="Federal Court of Australia" />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>Court Level</label>
-                <input name="courtLevel" style={inputStyle} placeholder="Federal" />
-              </div>
-              <div>
-                <label style={labelStyle}>Source Date</label>
-                <input name="sourcePublishedAt" type="date" style={inputStyle} />
-              </div>
-            </div>
-
-            <label style={labelStyle}>Source URL</label>
-            <input name="sourceUrl" type="url" style={inputStyle} placeholder="https://..." />
-
-            <label style={labelStyle}>Source Title</label>
-            <input name="sourceTitle" required style={inputStyle} placeholder="Judgment, complaint, docket entry..." />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={labelStyle}>Source Confidence</label>
-                <select name="sourceConfidence" style={inputStyle}>
-                  <option value="Official court source" style={{ color: '#000' }}>Official court source</option>
-                  <option value="Official regulator publication" style={{ color: '#000' }}>Official regulator publication</option>
-                  <option value="Court-adjacent source" style={{ color: '#000' }}>Court-adjacent source</option>
-                  <option value="Secondary source" style={{ color: '#000' }}>Secondary source</option>
-                  <option value="Unknown" style={{ color: '#000' }}>Unknown</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>AI Relevance</label>
-                <select name="aiRelevanceStatus" style={inputStyle}>
-                  <option value="Unknown" style={{ color: '#000' }}>Unknown</option>
-                  <option value="Possibly relevant" style={{ color: '#000' }}>Possibly relevant</option>
-                  <option value="Relevant" style={{ color: '#000' }}>Relevant</option>
-                  <option value="Not relevant" style={{ color: '#000' }}>Not relevant</option>
-                </select>
-              </div>
-            </div>
-
-            <label style={labelStyle}>Materiality</label>
-            <select name="materialityLevel" style={inputStyle}>
-              <option value="Low" style={{ color: '#000' }}>Low</option>
-              <option value="Medium" style={{ color: '#000' }}>Medium</option>
-              <option value="High" style={{ color: '#000' }}>High</option>
-            </select>
-
-            <label style={labelStyle}>Short Note</label>
-            <textarea name="summaryShort" rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Why this source might matter..." />
-
-            <label style={labelStyle}>Reviewer Notes</label>
-            <textarea name="reviewerNotes" rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="Initial triage notes..." />
-
-            <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-              Add Candidate
-            </button>
-          </form>
-        </section>
-
-        <section className="flex-col gap-4" style={{ display: 'flex' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Needs Triage ({openCandidates.length})</h2>
-          {openCandidates.length === 0 ? (
-            <div className="glass-panel surface-panel text-center text-muted" style={{ padding: '2rem' }}>No open candidates.</div>
-          ) : openCandidates.map((candidate) => {
-            const matchedKeywords = parseMatchedKeywords(candidate.matchedKeywords);
-
-            return (
-            <article key={candidate.id} className="glass-panel surface-panel" style={{ padding: '1.25rem' }}>
-              <div className="flex justify-between" style={{ gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>{candidate.caseName}</h3>
-                  <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                    {candidate.courtName} · {candidate.jurisdiction}
-                  </p>
-                </div>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
-                  {candidate.candidateStatus}
-                </span>
-              </div>
-
-              <div className="flex gap-2 mt-4" style={{ flexWrap: 'wrap' }}>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.sourceConfidence}</span>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.sourceCategory}</span>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.extractionMethod}</span>
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.aiRelevanceStatus}</span>
-                {candidate.relevanceScore !== null && (
-                  <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>
-                    {Math.round(candidate.relevanceScore * 100)}%
-                  </span>
-                )}
-                {candidate.aiRole && (
-                  <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.aiRole}</span>
-                )}
-                <span style={{ padding: '0.25rem 0.5rem', background: 'rgba(255, 255, 255, 0.06)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem' }}>{candidate.materialityLevel}</span>
-              </div>
-
-              <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '1rem' }}>
-                {candidate.summaryShort || 'No summary note provided.'}
-              </p>
-
-              {candidate.sourceUrl && (
-                <a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover-text-accent" style={{ display: 'inline-block', marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--accent-primary)' }}>
-                  {candidate.sourceTitle}
-                </a>
-              )}
-
-              <div style={{ marginTop: '1rem', padding: '0.875rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'rgba(255, 255, 255, 0.03)' }}>
-                <h4 style={{ fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>Ingestion Evidence</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', fontSize: '0.75rem' }}>
-                  <div>
-                    <span className="text-muted" style={{ display: 'block' }}>Adapter</span>
-                    <span>{candidate.sourceAdapterName || 'Manual entry'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted" style={{ display: 'block' }}>Classifier</span>
-                    <span>{candidate.llmScreeningStatus}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted" style={{ display: 'block' }}>AI Relevance</span>
-                    <span>{candidate.aiRelevant === null ? 'Unknown' : candidate.aiRelevant ? 'Relevant' : 'Not relevant'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted" style={{ display: 'block' }}>Fetched</span>
-                    <span>{candidate.fetchedAt ? new Date(candidate.fetchedAt).toLocaleString() : 'Not recorded'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted" style={{ display: 'block' }}>Duplicate Check</span>
-                    <span>{candidate.duplicateCheckResult || 'Not recorded'}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2" style={{ flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                  {matchedKeywords.length > 0 ? matchedKeywords.map((keyword) => (
-                    <span key={keyword} style={{ padding: '0.2rem 0.45rem', background: 'rgba(148, 163, 184, 0.1)', color: 'var(--accent-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
-                      {keyword}
-                    </span>
-                  )) : (
-                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>No keyword evidence recorded.</span>
-                  )}
-                </div>
-                {(candidate.relevanceReason || candidate.llmScreeningReason) && (
-                  <p className="text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.5, marginTop: '0.75rem' }}>{candidate.relevanceReason || candidate.llmScreeningReason}</p>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                <form action={acceptCandidate} className="flex-col gap-2" style={{ display: 'flex' }}>
-                  <input type="hidden" name="candidateId" value={candidate.id} />
-                  <textarea name="reviewerNotes" rows={2} style={{ ...inputStyle, resize: 'vertical', marginBottom: 0 }} placeholder="Acceptance note..." defaultValue={candidate.reviewerNotes || ''} />
-                  <button type="submit" className="btn-primary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>
-                    Accept as Case
-                  </button>
-                </form>
-
-                <form action={rejectCandidate} className="flex-col gap-2" style={{ display: 'flex' }}>
-                  <input type="hidden" name="candidateId" value={candidate.id} />
-                  <select name="rejectionReason" style={{ ...inputStyle, marginBottom: 0 }}>
-                    <option value="Not AI-related" style={{ color: '#000' }}>Not AI-related</option>
-                    <option value="Duplicate" style={{ color: '#000' }}>Duplicate</option>
-                    <option value="Insufficient source" style={{ color: '#000' }}>Insufficient source</option>
-                    <option value="Wrong jurisdiction" style={{ color: '#000' }}>Wrong jurisdiction</option>
-                    <option value="Too speculative" style={{ color: '#000' }}>Too speculative</option>
-                    <option value="Other" style={{ color: '#000' }}>Other</option>
-                  </select>
-                  <textarea name="reviewerNotes" rows={2} style={{ ...inputStyle, resize: 'vertical', marginBottom: 0 }} placeholder="Rejection note..." />
-                  <button type="submit" className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: '#ef4444' }}>
-                    Reject
-                  </button>
-                </form>
-              </div>
-            </article>
-          );
-          })}
-
-          {reviewedCandidates.length > 0 && (
-            <section className="glass-panel surface-panel" style={{ marginTop: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Recent Outcomes</h2>
-              {archivedCandidates.length > 0 && (
-                <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>
-                  {archivedCandidates.length} candidate{archivedCandidates.length !== 1 ? 's' : ''} archived as not materially AI-related.
-                </p>
-              )}
-              <div className="flex-col gap-3" style={{ display: 'flex' }}>
-                {reviewedCandidates.slice(0, 8).map((candidate) => (
-                  <div key={candidate.id} className="flex justify-between" style={{ gap: '1rem', alignItems: 'center', fontSize: '0.875rem' }}>
-                    <span>{candidate.caseName}</span>
-                    <span className="text-muted">
-                      {candidate.candidateStatus}
-                      {candidate.relevanceScore !== null ? ` · ${Math.round(candidate.relevanceScore * 100)}%` : ''}
-                      {candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+                return (
+                  <li key={candidate.id} className="entry">
+                    <EntryDate value={candidate.sourcePublishedAt} />
+                    <div>
+                      <span className="entry-title">{candidate.caseName}</span>
+                      <p className="entry-meta">
+                        {[candidate.courtName, candidate.sourcePublisher].filter(Boolean).join(' · ')}
+                      </p>
+                      {summary && <p className="entry-summary">{summary}</p>}
+                      <details>
+                        <summary>Why it was flagged</summary>
+                        <dl className="facts" style={{ marginTop: 8 }}>
+                          <div><dt>Screening</dt><dd>{candidate.llmScreeningStatus}{candidate.relevanceScore !== null ? ` (${Math.round(candidate.relevanceScore * 100)}%)` : ''}</dd></div>
+                          {(candidate.relevanceReason || candidate.llmScreeningReason) && (
+                            <div><dt>Reason</dt><dd>{candidate.relevanceReason || candidate.llmScreeningReason}</dd></div>
+                          )}
+                          <div><dt>Keywords</dt><dd>{keywords.join(', ') || 'None'}</dd></div>
+                          <div><dt>Found by</dt><dd>{candidate.sourceAdapterName || 'Added by hand'}</dd></div>
+                        </dl>
+                      </details>
+                      <div className="actions">
+                        <form action={acceptCandidate}>
+                          <input type="hidden" name="candidateId" value={candidate.id} />
+                          <button type="submit" className="btn">Accept</button>
+                        </form>
+                        <form action={rejectCandidate} className="actions" style={{ marginTop: 0 }}>
+                          <input type="hidden" name="candidateId" value={candidate.id} />
+                          <select name="rejectionReason" aria-label="Reason" defaultValue="Not AI-related">
+                            {REJECTION_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+                          </select>
+                          <button type="submit" className="btn-quiet">Reject</button>
+                        </form>
+                        {candidate.sourceUrl && (
+                          <a href={candidate.sourceUrl} target="_blank" rel="noopener noreferrer" className="small">Read source</a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </section>
+
+        <aside>
+          {reviewed.length > 0 && (
+            <>
+              <h2 className="label" style={{ marginTop: 0 }}>Recently reviewed</h2>
+              <dl className="facts">
+                {reviewed.slice(0, 12).map((candidate) => (
+                  <div key={candidate.id}>
+                    <dt>{candidate.candidateStatus}{candidate.rejectionReason ? ` · ${candidate.rejectionReason}` : ''}</dt>
+                    <dd className="small">{candidate.caseName}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          )}
+
+          <details style={{ marginTop: 24 }}>
+            <summary>Add a candidate by hand</summary>
+            <form action={createCandidate} style={{ marginTop: 12 }}>
+              <label className="field"><span>Name</span><input name="caseName" required /></label>
+              <label className="field"><span>Court</span><input name="courtName" required /></label>
+              <label className="field"><span>Source URL</span><input name="sourceUrl" type="url" /></label>
+              <label className="field"><span>Source title</span><input name="sourceTitle" required /></label>
+              <label className="field"><span>Note</span><textarea name="summaryShort" rows={2} /></label>
+              <input type="hidden" name="jurisdiction" value="Australia" />
+              <input type="hidden" name="country" value="Australia" />
+              <label className="field">
+                <span>Kind of source</span>
+                <select name="sourceConfidence" defaultValue="Official court source">
+                  {SOURCE_CONFIDENCE_LEVELS.map((level) => <option key={level}>{level}</option>)}
+                </select>
+              </label>
+              <button type="submit" className="btn">Add</button>
+            </form>
+          </details>
+        </aside>
       </div>
-    </div>
+    </>
   );
 }
