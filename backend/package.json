@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test -r ts-node/register src/*.test.ts",
     "ingest": "ts-node src/ingest-cases.ts",
-    "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts"
+    "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts",
+    "pipeline": "bash scripts/run-pipeline.sh",
+    "schedule:install": "bash scripts/install-schedule.sh",
+    "schedule:remove": "bash scripts/remove-schedule.sh"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
