@@ -17,6 +17,41 @@ The AI Litigation Navigator addresses the gap in public understanding of AI liti
 - **Admin Panel:** Built-in UI to create new case entries and delete existing cases from the database.
 
 
+## Screenshots
+
+**Case explorer**: filters on the left, cases as a dated index with each case's status on the right.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/cases-dark.png">
+  <img src="docs/screenshots/cases.png" alt="Case explorer">
+</picture>
+
+**Case page**: status, summary, and the procedural history as a tree (here *Thaler v Commissioner of Patents*, the DABUS case: first instance, Full Court appeal, then High Court special leave refused).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/case-dark.png">
+  <img src="docs/screenshots/case.png" alt="Case page">
+</picture>
+
+**Dashboard** and **triage queue**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png">
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/triage-dark.png">
+  <img src="docs/screenshots/triage.png" alt="Triage queue">
+</picture>
+
+**On a phone**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark.png">
+  <img src="docs/screenshots/mobile.png" alt="Case explorer on a phone" width="320">
+</picture>
+
 ## Tech Stack
 
 This repository is structured as a monorepo containing:
@@ -24,7 +59,7 @@ This repository is structured as a monorepo containing:
 ### Frontend (`/frontend`)
 - **Framework:** Next.js 14+ (App Router)
 - **Language:** TypeScript
-- **Styling:** one plain CSS file; Newsreader and Source Sans 3 via `next/font`; light/dark follows the system setting
+- **Styling:** one plain CSS file; Newsreader and Source Sans 3 via `next/font`; light and dark themes, following the system setting unless changed with the switch in the masthead
 
 ### Backend (`/backend`)
 - **Server:** Express.js
