@@ -40,7 +40,7 @@ const REPORT_SERIES = 'CLR|FCR|NSWLR|ALR|ALJR|FLR|IPR|ACSR|ATR|IR|VR|Qd R|SASR|W
 const REPORT_CITATION = new RegExp(`[([]\\d{4}[)\\]]\\s+(?:\\d{1,4}\\s+)?(?:${REPORT_SERIES})\\s+\\d{1,5}\\b`, 'g');
 // "[1942] AC 509" looks like a neutral citation but is an English law report.
 const IS_REPORT_SERIES = new RegExp(`^(?:${REPORT_SERIES})$`);
-const LEGISLATION = /(?<!\S)((?:[A-Z(][\w'’()-]*\s+(?:(?:of|and|for|the|to|in|on|with)\s+)*){1,10})(Act|Regulations?|Rules|Ordinance|Code)\s+(\d{4})\s*\((Cth|NSW|Qld|WA|SA|Tas|Vic|ACT|NT)\)/g;
+const LEGISLATION = /(?<!\S)((?:[A-Z(][\w'’()-]*,?\s+(?:(?:of|and|for|the|to|in|on|with)\s+)*){1,10})(Act|Regulations?|Rules|Ordinance|Code)\s+(\d{4})\s*\((Cth|NSW|Qld|WA|SA|Tas|Vic|ACT|NT)\)/g;
 // Every quoted span, short ones included, so straight quotes stay paired; short ones are filtered out later.
 const QUOTATION = /[“"]([^“”"]*)[”"]/g;
 const CASE_NAME = /((?:Re|Ex parte)\s+[^.;:()[\]\n]{1,100}|(?:[A-Z(][^\s;:]*\s+(?:(?:of|and|for|the|in|de|t\/as|&)\s+)*){1,10}v\s+[^;:[\]\n]{1,120}?)[\s,]*$/;
@@ -138,6 +138,22 @@ export const normaliseForMatch = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/**
+ * Where a quote stands against a judgment: "exact", "close" (three in four
+ * words line up, allowing for scanning errors in older judgments' text, such
+ * as "regariad az" for "regarded as"), or null when it isn't there.
+ */
+export function findQuote(quote: string, documentText: string): 'exact' | 'close' | null {
+  if (quoteAppearsIn(quote, documentText)) return 'exact';
+  const words = normaliseForMatch(documentText).split(' ');
+  const wanted = normaliseForMatch(quote.replace(/\.\.\.|…/g, ' ')).split(' ');
+  for (let i = 0; i + wanted.length <= words.length; i++) {
+    const same = wanted.filter((word, j) => words[i + j] === word).length;
+    if (same >= wanted.length * 0.75) return 'close';
+  }
+  return null;
+}
+
 /** Whether a quote appears in a judgment. Ellipses split it into fragments that must appear in order. */
 export function quoteAppearsIn(quote: string, documentText: string): boolean {
   const haystack = normaliseForMatch(documentText);
@@ -154,9 +170,8 @@ export function quoteAppearsIn(quote: string, documentText: string): boolean {
 /**
  * A judgment's numbered paragraphs: the longest run counting up from 1, so
  * numbered orders, contents or lists don't break it. Empty when the numbering
- * can't be trusted, because another run follows the main one (some NSW
- * judgments lost their numbering in the corpus: "1.", "2.", "1." ...) or it
- * ends before the second half; a wrong count would report valid pinpoints as
+ * can't be trusted: some NSW judgments lost their numbering in the corpus
+ * ("1.", "2.", "1." ...), and a wrong count would report valid pinpoints as
  * wrong.
  */
 export function paragraphIndex(documentText: string): Map<number, string> {
@@ -169,8 +184,10 @@ export function paragraphIndex(documentText: string): Map<number, string> {
     else runs.findLast((run) => run.length === n - 1)?.push(marker);
   }
   const sequence = runs.reduce((longest, run) => (run.length > longest.length ? run : longest), []);
+  // Orders and contents restart the numbering a few times; garbled numbering restarts constantly or runs on after the main run.
+  const restartsOften = runs.length > Math.max(3, sequence.length / 4);
   const followed = runs.some((run) => run.length >= 5 && run[0]!.index > sequence.at(-1)!.index);
-  if (sequence.length === 0 || followed || sequence.at(-1)!.index < documentText.length / 2) return new Map();
+  if (sequence.length === 0 || restartsOften || followed || sequence.at(-1)!.index < documentText.length / 2) return new Map();
 
   return new Map(
     sequence.map((marker, i) => {

@@ -12,7 +12,7 @@ import {
   extractReportCitations,
   legislationKey,
   paragraphIndex,
-  quoteAppearsIn,
+  findQuote,
   type CaseCitation,
   type LegislationCitation,
 } from './citations';
@@ -113,8 +113,10 @@ async function checkCase(citation: CaseCitation, quotes: string[], corpus: Corpu
     const shown = `“${quote.length > 80 ? `${quote.slice(0, 80)}…` : quote}”`;
     if (text === null) {
       findings.push({ level: 'unknown', message: `Couldn't download the judgment to check this quote: ${shown}` });
-    } else if (!quoteAppearsIn(quote, text)) {
-      findings.push({ level: 'error', message: `Quote not found in ${label(citation)}: ${shown}` });
+    } else {
+      const match = findQuote(quote, text);
+      if (match === 'close') findings.push({ level: 'ok', message: `Quote matches, allowing for scanning errors in the judgment's text: ${shown}` });
+      if (!match) findings.push({ level: 'error', message: `Quote not found in ${label(citation)}: ${shown}` });
     }
   }
 

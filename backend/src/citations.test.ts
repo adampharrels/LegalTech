@@ -6,6 +6,7 @@ import {
   extractLegislation,
   extractQuotations,
   extractReportCitations,
+  findQuote,
   neutralCitationIn,
   paragraphIndex,
   quoteAppearsIn,
@@ -47,6 +48,7 @@ test('extractLegislation offers shorter titles in case leading words were picked
   assert.equal(extractLegislation('s 2C of the Acts Interpretation Act 1901 (Cth)')[0]?.written, 'Acts Interpretation Act 1901 (Cth)');
   assert.equal(extractLegislation('Part IIIA of the Criminal Code Act 1983 (NT)')[0]?.written, 'Criminal Code Act 1983 (NT)');
   assert.ok(extractLegislation('Australian Consumer Law (Competition and Consumer Act 2010 (Cth))')[0]?.candidates.includes('Competition and Consumer Act 2010'));
+  assert.equal(extractLegislation('provisions of the Births, Deaths and Marriages Registration Act 1995 (NSW)')[0]?.written, 'Births, Deaths and Marriages Registration Act 1995 (NSW)');
 });
 
 test('extractQuotations attributes a quote to the nearest citation on the same line', () => {
@@ -66,6 +68,10 @@ test('quoteAppearsIn ignores case, punctuation and ellipses, but not wording', (
   assert.equal(quoteAppearsIn('only a natural person can be an inventor', judgment), true);
   assert.equal(quoteAppearsIn('[t]he Court held that ... only a natural person can be an inventor', judgment), true);
   assert.equal(quoteAppearsIn('an AI system can be an inventor', judgment), false);
+  // [1983] FCA 225 in the corpus was scanned with errors; an invented quote stays missing.
+  const scanned = 'the activity af a competing trader which would otherwise be regariad az infringement can bring about a situation';
+  assert.equal(findQuote('the activity of a competing trader which would otherwise be regarded as infringement can bring about a situation', scanned), 'close');
+  assert.equal(findQuote('a sufficient connection between the employment and the wrongful act or omission', 'a sufficient connection between the position for which he was employed and his wrongful conduct'), null);
 });
 
 test('paragraphIndex follows the numbering and ignores numbered lists out of sequence', () => {
@@ -79,6 +85,8 @@ test('paragraphIndex follows the numbering and ignores numbered lists out of seq
   // NSW [2023] NSWSC 708 in the corpus: runs of 10, 31 and 20, so no count can be trusted.
   const run = (length: number) => Array.from({ length }, (_, i) => `${i + 1} Text.`).join('\n');
   assert.equal(paragraphIndex([run(10), run(31), run(20)].join('\n')).size, 0);
+  // [2016] NSWSC 1805: dozens of short runs before a run of 39.
+  assert.equal(paragraphIndex([...Array.from({ length: 30 }, () => run(3)), run(39)].join('\n')).size, 0);
   const judgment = `ORDERS\n1. Appeal allowed.\n1 INTRODUCTION\n1. INTRODUCTION\n${Array.from({ length: 40 }, (_, i) => `${i + 1} Reasons.`).join('\n')}`;
   assert.equal(paragraphIndex(judgment).size, 40);
 });
