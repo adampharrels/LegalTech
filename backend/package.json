@@ -7,7 +7,7 @@
     "build": "tsc --noEmit",
     "dev": "ts-node src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test -r ts-node/register src/*.test.ts",
+    "test": "node --test -r ts-node/register test/*.test.ts",
     "ingest": "ts-node src/ingest-cases.ts",
     "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts",
     "pipeline": "bash scripts/run-pipeline.sh",

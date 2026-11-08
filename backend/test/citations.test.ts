@@ -10,8 +10,8 @@ import {
   neutralCitationIn,
   paragraphIndex,
   quoteAppearsIn,
-} from './citations';
-import { appealOutcome, appealedFrom } from './import-corpus';
+} from '../src/citations';
+import { appealOutcome, appealedFrom } from '../src/import-corpus';
 
 test('extractCaseCitations reads the case name, citation and pinpoint', () => {
   const [citation] = extractCaseCitations('See, eg, Commissioner of Patents v Thaler [2022] FCAFC 62 at [113]-[115], where the Court held');

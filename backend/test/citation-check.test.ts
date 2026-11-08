@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkDocument, type CorpusLookup } from './citation-check';
+import { checkDocument, type CorpusLookup } from '../src/citation-check';
 
 const JUDGMENT = 'Commissioner of Patents v Thaler [2022] FCAFC 62\n1 Introduction.\n2 The question is who can be an inventor.\n3 Only a natural person can be an inventor under the Act.';
 

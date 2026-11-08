@@ -181,6 +181,7 @@ The pipeline needs a `GEMINI_API_KEY` in `backend/.env` for relevance screening 
 | Folder | Contents |
 | --- | --- |
 | `backend/src` | API routes, citation checker (`citations.ts`, `citation-check.ts`, `corpus.ts`, `court-rules.ts`), ingestion pipeline |
+| `backend/test` | Unit tests (`npm test` in `backend`) |
 | `backend/prisma` | Tracker schema, migrations and seed data |
 | `frontend/src` | Pages (`app`), components, server actions |
 

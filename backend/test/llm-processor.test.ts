@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { normaliseAiRole } from './llm-processor';
+import { normaliseAiRole } from '../src/llm-processor';
 
 test('normaliseAiRole keeps recognised role labels stable', () => {
   assert.equal(normaliseAiRole('GENERATIVE_AI', true), 'GENERATIVE_AI');
