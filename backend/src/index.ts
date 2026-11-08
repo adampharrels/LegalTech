@@ -6,13 +6,15 @@ import casesRoutes from './routes/cases';
 import taxonomyRoutes from './routes/taxonomy';
 import reviewsRoutes from './routes/reviews';
 import lifecycleRoutes from './routes/lifecycle';
+import checkRoutes from './routes/check';
 
 dotenv.config();
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Drafts sent to the citation checker can be long.
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api', candidatesRoutes);
@@ -20,6 +22,7 @@ app.use('/api', casesRoutes);
 app.use('/api', taxonomyRoutes);
 app.use('/api', reviewsRoutes);
 app.use('/api', lifecycleRoutes);
+app.use('/api', checkRoutes);
 
 // === CASE INGESTION ===
 // Note: Case ingestion is handled by the case-ingestor.ts module

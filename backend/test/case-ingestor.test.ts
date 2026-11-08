@@ -12,7 +12,7 @@ import {
   latestNewswireItemsByMatter,
   type CaseData,
   type CaseSource,
-} from './case-ingestor';
+} from '../src/case-ingestor';
 
 function makeCaseData(overrides: Partial<CaseData> = {}): CaseData {
   return {

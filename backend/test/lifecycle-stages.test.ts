@@ -9,7 +9,7 @@ import {
   latestLifecycleStage,
   parseStageDate,
   type LifecycleStageRecord,
-} from './lifecycle-stages';
+} from '../src/lifecycle-stages';
 
 function makeStage(overrides: Partial<LifecycleStageRecord> = {}): LifecycleStageRecord {
   return {

@@ -7,12 +7,14 @@
     "build": "tsc --noEmit",
     "dev": "ts-node src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test -r ts-node/register src/*.test.ts",
+    "test": "node --test -r ts-node/register test/*.test.ts",
     "ingest": "ts-node src/ingest-cases.ts",
     "detect-lifecycle-signals": "ts-node src/detect-lifecycle-signals.ts",
     "pipeline": "bash scripts/run-pipeline.sh",
     "schedule:install": "bash scripts/install-schedule.sh",
-    "schedule:remove": "bash scripts/remove-schedule.sh"
+    "schedule:remove": "bash scripts/remove-schedule.sh",
+    "corpus:import": "ts-node src/import-corpus.ts",
+    "corpus:download": "mkdir -p data && curl -fL https://github.com/adampharrels/LegalTech/releases/download/corpus-index-v1/corpus.db.gz | gunzip > data/corpus.db.tmp && mv data/corpus.db.tmp data/corpus.db"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -30,6 +32,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsdom": "^29.1.1",
+    "mammoth": "1.13.0",
+    "pdf-parse": "2.4.5",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {

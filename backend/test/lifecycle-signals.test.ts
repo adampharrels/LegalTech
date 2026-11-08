@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { describeNewswireItem, planLifecycleSignalUpdates, type TrackedMatter } from './lifecycle-signals';
-import type { NewswireItem } from './case-ingestor';
+import { describeNewswireItem, planLifecycleSignalUpdates, type TrackedMatter } from '../src/lifecycle-signals';
+import type { NewswireItem } from '../src/case-ingestor';
 
 function makeItem(overrides: Partial<NewswireItem> = {}): NewswireItem {
   return {

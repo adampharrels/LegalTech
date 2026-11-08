@@ -35,3 +35,6 @@ frontend/node_modules
 
 # Pipeline logs
 backend/logs/
+
+# Citation checker index (npm run corpus:download, or corpus:import to build it)
+backend/data/
